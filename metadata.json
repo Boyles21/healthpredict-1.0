@@ -1,0 +1,6 @@
+{
+  "name": "HealthPredict",
+  "description": "Predicting PCOS using machine learning based on user symptoms and health data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
