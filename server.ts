@@ -9,8 +9,14 @@ import fs from "fs";
 import { parse } from "csv-parse/sync";
 import { RandomForestClassifier } from "ml-random-forest";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let _dirname = "";
+try {
+  const _filename = fileURLToPath(import.meta.url);
+  _dirname = path.dirname(_filename);
+} catch (e) {
+  // Fallback for CJS environments or bundled code
+  _dirname = process.cwd();
+}
 
 // Machine learning initialization
 const upload = multer({ storage: multer.memoryStorage() });
@@ -68,8 +74,8 @@ function trainModel() {
     const possiblePaths = [
       path.join(currentDir, "pcos_dataset.csv"),
       path.join(currentDir, "dist", "pcos_dataset.csv"),
-      path.resolve(__dirname, "pcos_dataset.csv"),
-      path.resolve(__dirname, "..", "pcos_dataset.csv")
+      path.resolve(_dirname, "pcos_dataset.csv"),
+      path.resolve(_dirname, "..", "pcos_dataset.csv")
     ];
 
     let csvPath = "";
@@ -335,6 +341,11 @@ async function startServer() {
     }
   });
 
+  // API Fallback (404 for any /api request not handled)
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ status: "error", message: `API route ${req.method} ${req.url} not found` });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -344,8 +355,10 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    console.log(`>>> [SERVER] Serving static files from: ${distPath}`);
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
+      console.log(`>>> [SERVER] Falling back to index.html for GET ${req.url}`);
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

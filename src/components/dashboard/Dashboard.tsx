@@ -89,6 +89,29 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [serverStatus, setServerStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [modelStatus, setModelStatus] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch("/api/health");
+        if (res.ok) {
+          const data = await res.json();
+          setServerStatus("online");
+          setModelStatus(data.modelReady);
+        } else {
+          setServerStatus("offline");
+        }
+      } catch (e) {
+        setServerStatus("offline");
+      }
+    };
+    checkHealth();
+    // Poll every 10 seconds during checking or if offline
+    const interval = setInterval(checkHealth, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // BMI calculation logic ...
   useEffect(() => {
@@ -402,14 +425,19 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         data = await response.json();
       } else {
         const text = await response.text();
-        console.error(">>> [FRONTEND] Server returned non-JSON:", text.substring(0, 500));
+        console.error(">>> [FRONTEND] Server returned non-JSON:", text.substring(0, 1000));
         
+        let displayError = `Server Error: Received non-JSON response (${response.status}).`;
         if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
-          throw new Error("The server redirected to the homepage instead of processing the prediction. This usually means the API endpoint is unreachable or misconfigured on the host.");
+          displayError = "The server returned a webpage instead of data. This usually happens if the backend is not running properly or the API route is misconfigured.";
+        } else if (text.trim().length > 0) {
+          // Escape some chars for display
+          const snippet = text.substring(0, 100).replace(/[<>{}]/g, '_');
+          displayError += ` Content: ${snippet}...`;
+        } else {
+          displayError += " The response was empty.";
         }
-        
-        const snippet = text.substring(0, 100).replace(/[<>{}]/g, '');
-        throw new Error(`Server Error: Received non-JSON response (${response.status}). Content starts with: ${snippet}...`);
+        throw new Error(displayError);
       }
 
       console.log(">>> [FRONTEND] Prediction Result:", data);
@@ -463,14 +491,18 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         result = await response.json();
       } else {
         const text = await response.text();
-        console.error(">>> [FRONTEND] Excel upload returned non-JSON:", text.substring(0, 500));
+        console.error(">>> [FRONTEND] Excel upload returned non-JSON:", text.substring(0, 1000));
         
+        let displayError = `Server Error: Received non-JSON response (${response.status}).`;
         if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
-          throw new Error("The server redirected to the homepage during file upload. Check if the server is running and the endpoint /api/predict-excel is active.");
+          displayError = "The server returned a webpage during Excel processing. This usually indicates an API routing issue.";
+        } else if (text.trim().length > 0) {
+          const snippet = text.substring(0, 100).replace(/[<>{}]/g, '_');
+          displayError += ` Content: ${snippet}...`;
+        } else {
+          displayError += " The response was empty.";
         }
-        
-        const snippet = text.substring(0, 100).replace(/[<>{}]/g, '');
-        throw new Error(`Server Error: Received non-JSON response (${response.status}). Content starts with: ${snippet}...`);
+        throw new Error(displayError);
       }
 
       if (result.status === "error") throw new Error(result.message);
@@ -752,6 +784,13 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
             </div>
             <span className="text-lg font-bold tracking-tight text-slate-900 hidden sm:inline">
               HealthPredict
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 mr-Auto ml-4">
+            <div className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? (modelStatus ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-red-500'} animate-pulse`} />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:inline">
+              {serverStatus === 'online' ? (modelStatus ? 'Analysis Ready' : 'Initializing Model') : 'Backend Offline'}
             </span>
           </div>
           
