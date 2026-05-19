@@ -17,6 +17,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // --- Machine Learning Initialization ---
 let rfModel: RandomForestClassifier | null = null;
+let modelLoadError: string | null = null;
 
 /**
  * Utility to shuffle arrays for data splitting
@@ -41,10 +42,10 @@ function evaluateModel(X_test: number[][], y_test: number[]) {
 
   const predictions = rfModel.predict(X_test);
 
-  let tp = 0; // True Positives: Predicted PCOS, Actually PCOS
-  let tn = 0; // True Negatives: Predicted No PCOS, Actually No PCOS
-  let fp = 0; // False Positives: Predicted PCOS, Actually No PCOS
-  let fn = 0; // False Negatives: Predicted No PCOS, Actually PCOS
+  let tp = 0; // True Positives
+  let tn = 0; // True Negatives
+  let fp = 0; // False Positives
+  let fn = 0; // False Negatives
 
   for (let i = 0; i < y_test.length; i++) {
     const actual = y_test[i];
@@ -57,30 +58,16 @@ function evaluateModel(X_test: number[][], y_test: number[]) {
   }
 
   const accuracy = (tp + tn) / y_test.length;
-  const precision = tp / (tp + fp) || 0;
-  const recall = tp / (tp + fn) || 0;
-  const f1 = 2 * (precision * recall) / (precision + recall) || 0;
-
-  console.log("\n=================================");
-  console.log("     MODEL EVALUATION RESULTS     ");
-  console.log("=================================");
-  console.log(`Accuracy:  ${(accuracy * 100).toFixed(2)}%`);
-  console.log(`Precision: ${(precision * 100).toFixed(2)}%`);
-  console.log(`Recall:    ${(recall * 100).toFixed(2)}%`);
-  console.log(`F1 Score:  ${(f1 * 100).toFixed(2)}%`);
-  console.log("---------------------------------");
-  console.log("Confusion Matrix:");
-  console.log(`[[${tn}, ${fp}],  <-- [TN, FP]`);
-  console.log(` [${fn}, ${tp}]]   <-- [FN, TP]`);
-  console.log("=================================\n");
+  console.log(`>>> [ML] Calibration complete. Accuracy: ${(accuracy * 100).toFixed(2)}%`);
 }
 
 function trainModel() {
-  console.log(">>> [ML] Initializing training sequence...");
+  console.log(">>> [ML] Loading PCOS dataset...");
   try {
-    // Try multiple possible paths for the dataset (root and dist relative)
+    const currentDir = process.cwd();
     const possiblePaths = [
-      path.resolve(process.cwd(), "pcos_dataset.csv"),
+      path.join(currentDir, "pcos_dataset.csv"),
+      path.join(currentDir, "dist", "pcos_dataset.csv"),
       path.resolve(__dirname, "pcos_dataset.csv"),
       path.resolve(__dirname, "..", "pcos_dataset.csv")
     ];
@@ -94,7 +81,8 @@ function trainModel() {
     }
 
     if (!csvPath) {
-      console.error(`>>> [ML] CRITICAL: Dataset not found in any of: ${possiblePaths.join(", ")}`);
+      modelLoadError = `Dataset not found. Searched: ${possiblePaths.join(", ")}`;
+      console.error(`>>> [ML] CRITICAL: ${modelLoadError}`);
       return;
     }
 
@@ -105,8 +93,6 @@ function trainModel() {
       skip_empty_lines: true,
       trim: true
     });
-
-    console.log(`>>> [ML] Dataset loaded. Rows: ${records.length}`);
 
     const allX: number[][] = [];
     const ally: number[] = [];
@@ -127,7 +113,6 @@ function trainModel() {
         parseFloat(row["Reg.Exercise(Y/N)"])
       ];
 
-      // Clean invalid data
       if (features.every(f => !isNaN(f)) && !isNaN(parseFloat(row["PCOS (Y/N)"]))) {
         allX.push(features);
         ally.push(parseInt(row["PCOS (Y/N)"]));
@@ -135,35 +120,30 @@ function trainModel() {
     });
 
     if (allX.length === 0) {
+      modelLoadError = "No valid records found in dataset";
       console.error(">>> [ML] No valid records found for training.");
       return;
     }
 
-    // Shuffle and Split: 80% Train, 20% Test
     const shuffled = shuffleData(allX, ally);
     const splitIndex = Math.floor(shuffled.X.length * 0.8);
-    
     const X_train = shuffled.X.slice(0, splitIndex);
     const y_train = shuffled.y.slice(0, splitIndex);
     const X_test = shuffled.X.slice(splitIndex);
     const y_test = shuffled.y.slice(splitIndex);
 
-    console.log(`>>> [ML] Records split: ${X_train.length} Training, ${X_test.length} Testing.`);
-    console.log(`>>> [ML] Training Random Forest model...`);
-    
     rfModel = new RandomForestClassifier({
-      nEstimators: 100, // Increased for better stability
+      nEstimators: 100,
       maxFeatures: 0.8,
       replacement: true
     });
 
     rfModel.train(X_train, y_train);
-    console.log(">>> [ML] Random Forest model trained successfully.");
-
-    // Run automatic evaluation
+    console.log(">>> [ML] Model trained successfully.");
     evaluateModel(X_test, y_test);
 
-  } catch (error) {
+  } catch (error: any) {
+    modelLoadError = error.message;
     console.error(">>> [ML] Dataset loading or training failed:", error);
   }
 }
@@ -175,9 +155,24 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  // Basic Middleware
+  // Request Logging Middleware
+  app.use((req, res, next) => {
+    console.log(`>>> [SERVER] ${new Date().toISOString()} | ${req.method} ${req.url}`);
+    next();
+  });
+
   app.use(cors());
   app.use(express.json());
+
+  // Health / Status check
+  app.get("/api/health", (req, res) => {
+    res.json({
+      status: "online",
+      modelReady: rfModel !== null,
+      modelError: modelLoadError,
+      time: new Date().toISOString()
+    });
+  });
 
   // Helper function for prediction logic
   const runPrediction = (data: any) => {
@@ -274,7 +269,7 @@ async function startServer() {
   });
 
   // Prediction API Endpoint (JSON)
-  app.post("/predict", (req, res) => {
+  app.post("/api/predict", (req, res) => {
     try {
       console.log(">>> [BACKEND] Received Prediction Request Body:", JSON.stringify(req.body, null, 2));
 
@@ -302,7 +297,7 @@ async function startServer() {
   });
 
   // Prediction API Endpoint (Excel Upload)
-  app.post("/predict-excel", upload.single("file"), (req, res) => {
+  app.post("/api/predict-excel", upload.single("file"), (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ status: "error", message: "No file uploaded" });

@@ -385,7 +385,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     setUploadSuccess(false);
     
     try {
-      const response = await fetch("/predict", {
+      const response = await fetch("/api/predict", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -393,14 +393,23 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         body: JSON.stringify(payload),
       });
 
+      console.log(">>> [FRONTEND] API Response Status:", response.status);
+      console.log(">>> [FRONTEND] API Response Headers:", Object.fromEntries(Array.from(response.headers.entries())));
+
       let data;
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         data = await response.json();
       } else {
         const text = await response.text();
-        console.error(">>> [FRONTEND] Server returned non-JSON:", text);
-        throw new Error(`Server Error: ${response.status} ${response.statusText}`);
+        console.error(">>> [FRONTEND] Server returned non-JSON:", text.substring(0, 500));
+        
+        if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
+          throw new Error("The server redirected to the homepage instead of processing the prediction. This usually means the API endpoint is unreachable or misconfigured on the host.");
+        }
+        
+        const snippet = text.substring(0, 100).replace(/[<>{}]/g, '');
+        throw new Error(`Server Error: Received non-JSON response (${response.status}). Content starts with: ${snippet}...`);
       }
 
       console.log(">>> [FRONTEND] Prediction Result:", data);
@@ -441,10 +450,12 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     data.append("file", file);
 
     try {
-      const response = await fetch("/predict-excel", {
+      const response = await fetch("/api/predict-excel", {
         method: "POST",
         body: data,
       });
+
+      console.log(">>> [FRONTEND] Excel Upload Status:", response.status);
 
       let result;
       const contentType = response.headers.get("content-type");
@@ -452,8 +463,14 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         result = await response.json();
       } else {
         const text = await response.text();
-        console.error(">>> [FRONTEND] Excel upload returned non-JSON:", text);
-        throw new Error(`Server Error: ${response.status} ${response.statusText}`);
+        console.error(">>> [FRONTEND] Excel upload returned non-JSON:", text.substring(0, 500));
+        
+        if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
+          throw new Error("The server redirected to the homepage during file upload. Check if the server is running and the endpoint /api/predict-excel is active.");
+        }
+        
+        const snippet = text.substring(0, 100).replace(/[<>{}]/g, '');
+        throw new Error(`Server Error: Received non-JSON response (${response.status}). Content starts with: ${snippet}...`);
       }
 
       if (result.status === "error") throw new Error(result.message);
