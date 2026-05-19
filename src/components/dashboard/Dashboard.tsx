@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Activity, LogOut, User, ClipboardCheck, Sparkles, AlertCircle, RefreshCw, PieChart, X, FileUp, CheckCircle2, TrendingUp } from "lucide-react";
+import { Activity, LogOut, User, ClipboardCheck, Sparkles, AlertCircle, RefreshCw, PieChart, X, FileUp, CheckCircle2, TrendingUp, FileText, Download } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { jsPDF } from "jspdf";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import Checkbox from "../ui/Checkbox";
@@ -123,6 +124,134 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
   useEffect(() => {
     localStorage.setItem("health_predict_history", JSON.stringify(history));
   }, [history]);
+
+  const handleExportPDF = () => {
+    if (!prediction) return;
+    const { status, likelihood, description } = prediction;
+    const profile = getRiskProfile(likelihood);
+    
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(15, 23, 42); 
+    doc.text("HealthPredict Analysis Report", 20, 30);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139); 
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 38);
+    doc.text(`Patient Name: ${userProfile.fullName}`, 20, 43);
+    
+    // Separator
+    doc.setDrawColor(241, 245, 249);
+    doc.line(20, 50, 190, 50);
+    
+    // Result Section
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Assessment Results", 20, 65);
+    
+    doc.setFontSize(32);
+    if (likelihood > 65) doc.setTextColor(225, 29, 72); 
+    else if (likelihood >= 36) doc.setTextColor(217, 119, 6); 
+    else doc.setTextColor(5, 150, 105); 
+    
+    doc.text(`${likelihood}%`, 20, 80);
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Status: ${status}`, 20, 90);
+    
+    // Description
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105); 
+    const splitDescription = doc.splitTextToSize(description, 170);
+    doc.text(splitDescription, 20, 100);
+    
+    // Recommendations
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Key Recommendations", 20, 125);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    profile.recommendations.forEach((rec, index) => {
+      doc.text(`• ${rec.text}`, 25, 135 + (index * 8));
+    });
+    
+    // Data Used
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Data Provided for Analysis", 20, 175);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    const dataPoints = [
+      `Age: ${formData.age} years`,
+      `BMI: ${bmi || 'N/A'}`,
+      `Cycle Regularity: ${formData.cycleRegularity}`,
+      `Cycle Flow: ${formData.cycleLength} days`,
+      `Weight Gain: ${formData.weightGain ? 'Yes' : 'No'}`,
+      `Hair Growth: ${formData.hairGrowth ? 'Yes' : 'No'}`,
+      `Hair Loss: ${formData.hairLoss ? 'Yes' : 'No'}`,
+      `Pimples/Acne: ${formData.pimples ? 'Yes' : 'No'}`,
+      `Skin Darkening: ${formData.skinDarkening ? 'Yes' : 'No'}`,
+      `Fast Food Habits: ${formData.fastFood ? 'Yes' : 'No'}`,
+      `Regular Exercise: ${formData.regularExercise ? 'Yes' : 'No'}`,
+    ];
+    
+    dataPoints.forEach((point, index) => {
+      const col = index % 2 === 0 ? 20 : 100;
+      const row = 185 + (Math.floor(index / 2) * 6);
+      doc.text(point, col, row);
+    });
+    
+    // Disclaimer
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184); 
+    const disclaimer = "Medical Disclaimer: This report is an AI-assisted prediction and NOT a clinical diagnosis. Please consult a qualified gynecologist or healthcare professional for a complete clinical workup.";
+    const splitDisclaimer = doc.splitTextToSize(disclaimer, 170);
+    doc.text(splitDisclaimer, 20, 275);
+    
+    doc.save(`HealthPredict_Report_${userProfile.fullName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleExportCSV = () => {
+    if (!prediction) return;
+    const { likelihood, status, description } = prediction;
+    
+    const rows = [
+      ["Metric", "Value"],
+      ["Patient Name", userProfile.fullName],
+      ["Report Date", new Date().toLocaleString()],
+      ["PCOS Risk Likelihood", `${likelihood}%`],
+      ["Risk Status", status],
+      ["AI Description", description],
+      ["", ""],
+      ["Analyzed Health Markers", ""],
+      ["Age", formData.age],
+      ["BMI", bmi || "N/A"],
+      ["Cycle Regularity", formData.cycleRegularity],
+      ["Cycle Length", formData.cycleLength],
+      ["Weight Gain", formData.weightGain ? "Yes" : "No"],
+      ["Hair Growth", formData.hairGrowth ? "Yes" : "No"],
+      ["Hair Loss", formData.hairLoss ? "Yes" : "No"],
+      ["Pimples", formData.pimples ? "Yes" : "No"],
+      ["Skin Darkening", formData.skinDarkening ? "Yes" : "No"],
+      ["Fast Food Intake", formData.fastFood ? "Yes" : "No"],
+      ["Exercise Habits", formData.regularExercise ? "Yes" : "No"],
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + rows.map(e => e.map(cell => `"${cell}"`).join(",")).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `HealthPredict_Data_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const HistorySection = () => {
     if (history.length === 0) return null;
@@ -266,6 +395,10 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
 
       const data = await response.json();
       console.log(">>> [FRONTEND] Prediction Result:", data);
+      
+      if (!response.ok || data.status === "error") {
+        throw new Error(data.message || "Server analysis error");
+      }
       
       setPrediction(data);
       
@@ -449,13 +582,24 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
             <RefreshCw className="w-4 h-4" />
             New Assessment
           </Button>
-          <Button 
-            variant="outline" 
-            className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2 opacity-50 cursor-not-allowed"
-          >
-            <FileUp className="w-4 h-4" />
-            Export PDF (soon)
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              onClick={handleExportPDF}
+              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Export PDF
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleExportCSV}
+              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
+            >
+              <Download className="w-4 h-4" />
+              CSV
+            </Button>
+          </div>
         </div>
 
         {/* Main Result Card */}

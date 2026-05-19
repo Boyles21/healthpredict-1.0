@@ -9,10 +9,7 @@ import fs from "fs";
 import { parse } from "csv-parse/sync";
 import { RandomForestClassifier } from "ml-random-forest";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Configure multer for file uploads
+// Machine learning initialization
 const upload = multer({ storage: multer.memoryStorage() });
 
 // --- Machine Learning Initialization ---
@@ -78,9 +75,9 @@ function evaluateModel(X_test: number[][], y_test: number[]) {
 function trainModel() {
   console.log(">>> [ML] Loading PCOS dataset...");
   try {
-    const csvPath = path.join(process.cwd(), "pcos_dataset.csv");
+    const csvPath = path.resolve(process.cwd(), "pcos_dataset.csv");
     if (!fs.existsSync(csvPath)) {
-      console.error(`>>> [ML] Dataset file not found at ${csvPath}`);
+      console.error(`>>> [ML] CRITICAL: Dataset file not found at ${csvPath}`);
       return;
     }
     const csvData = fs.readFileSync(csvPath, "utf-8");
@@ -157,7 +154,7 @@ trainModel();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Basic Middleware
   app.use(cors());
