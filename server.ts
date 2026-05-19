@@ -9,6 +9,9 @@ import fs from "fs";
 import { parse } from "csv-parse/sync";
 import { RandomForestClassifier } from "ml-random-forest";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Machine learning initialization
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -73,13 +76,29 @@ function evaluateModel(X_test: number[][], y_test: number[]) {
 }
 
 function trainModel() {
-  console.log(">>> [ML] Loading PCOS dataset...");
+  console.log(">>> [ML] Initializing training sequence...");
   try {
-    const csvPath = path.resolve(process.cwd(), "pcos_dataset.csv");
-    if (!fs.existsSync(csvPath)) {
-      console.error(`>>> [ML] CRITICAL: Dataset file not found at ${csvPath}`);
+    // Try multiple possible paths for the dataset (root and dist relative)
+    const possiblePaths = [
+      path.resolve(process.cwd(), "pcos_dataset.csv"),
+      path.resolve(__dirname, "pcos_dataset.csv"),
+      path.resolve(__dirname, "..", "pcos_dataset.csv")
+    ];
+
+    let csvPath = "";
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        csvPath = p;
+        break;
+      }
+    }
+
+    if (!csvPath) {
+      console.error(`>>> [ML] CRITICAL: Dataset not found in any of: ${possiblePaths.join(", ")}`);
       return;
     }
+
+    console.log(`>>> [ML] Found dataset at: ${csvPath}`);
     const csvData = fs.readFileSync(csvPath, "utf-8");
     const records = parse(csvData, {
       columns: true,
@@ -247,7 +266,11 @@ async function startServer() {
 
   // API Status Route
   app.get("/api-status", (req, res) => {
-    res.send("API is running");
+    res.json({
+      status: "running",
+      modelReady: rfModel !== null,
+      environment: process.env.NODE_ENV || "development"
+    });
   });
 
   // Prediction API Endpoint (JSON)
@@ -259,15 +282,22 @@ async function startServer() {
         return res.status(400).json({ status: "error", message: "No data provided" });
       }
 
+      if (!rfModel) {
+        return res.status(503).json({ 
+          status: "error", 
+          message: "The analysis engine is still initializing. Please wait a moment and try again." 
+        });
+      }
+
       const prediction = runPrediction(req.body);
       res.json({
         ...prediction,
         result: "Prediction completed",
         serverStatus: "success"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(">>> [BACKEND] Prediction Error:", error);
-      res.status(500).json({ status: "error", message: "Prediction failed on server" });
+      res.status(500).json({ status: "error", message: error.message || "Prediction failed on server" });
     }
   });
 
@@ -276,6 +306,13 @@ async function startServer() {
     try {
       if (!req.file) {
         return res.status(400).json({ status: "error", message: "No file uploaded" });
+      }
+
+      if (!rfModel) {
+        return res.status(503).json({ 
+          status: "error", 
+          message: "The analysis engine is still initializing. Please wait a moment and try again." 
+        });
       }
 
       const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
@@ -297,9 +334,9 @@ async function startServer() {
         dataUsed: data,
         serverStatus: "success"
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(">>> [BACKEND] Excel processing error:", error);
-      res.status(500).json({ status: "error", message: "Failed to process Excel file" });
+      res.status(500).json({ status: "error", message: error.message || "Failed to process Excel file" });
     }
   });
 

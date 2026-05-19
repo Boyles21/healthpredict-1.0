@@ -393,7 +393,16 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error(">>> [FRONTEND] Server returned non-JSON:", text);
+        throw new Error(`Server Error: ${response.status} ${response.statusText}`);
+      }
+
       console.log(">>> [FRONTEND] Prediction Result:", data);
       
       if (!response.ok || data.status === "error") {
@@ -411,9 +420,9 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         },
         ...prev
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Prediction failed:", error);
-      alert("Analysis engine encountered an error. Please check your connection.");
+      alert(error.message || "Analysis engine encountered an error. Please check your connection.");
     } finally {
       setIsPredicting(false);
     }
@@ -437,7 +446,16 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         body: data,
       });
 
-      const result = await response.json();
+      let result;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error(">>> [FRONTEND] Excel upload returned non-JSON:", text);
+        throw new Error(`Server Error: ${response.status} ${response.statusText}`);
+      }
+
       if (result.status === "error") throw new Error(result.message);
 
       setPrediction(result);
