@@ -1,6 +1,6 @@
 {
   "name": "HealthPredict",
-  "description": "Predicting PCOS using machine learning based on user symptoms and health data.",
+  "description": "Predicting PCOS and Uterine Fibroids using machine learning based on user symptoms and health data.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

@@ -65,6 +65,21 @@ function evaluateModel(X_test: number[][], y_test: number[]) {
 
   const accuracy = (tp + tn) / y_test.length;
   console.log(`>>> [ML] Calibration complete. Accuracy: ${(accuracy * 100).toFixed(2)}%`);
+
+  const precision = tp / (tp + fp) || 0;
+  const recall = tp / (tp + fn) || 0;
+  const f1Score = (2 * (precision * recall) / (precision + recall)) || 0;
+
+  console.log("=== MODEL EVALUATION RESULTS ===");
+  console.log(`Accuracy: ${(accuracy * 100).toFixed(2)}%`);
+  console.log(`Precision: ${(precision * 100).toFixed(2)}%`);
+  console.log(`Recall: ${(recall * 100).toFixed(2)}%`);
+  console.log(`F1 Score: ${(f1Score * 100).toFixed(2)}%`);
+
+  console.log(`TP: ${tp}`);
+  console.log(`TN: ${tn}`);
+  console.log(`FP: ${fp}`);
+  console.log(`FN: ${fn}`);
 }
 
 function trainModel() {
