@@ -11,7 +11,7 @@ export default function Footer() {
           {/* Brand Col */}
           <div className="col-span-1 md:col-span-5 text-left">
             <div className="flex items-center gap-2.5 mb-6">
-              <div className="w-9 h-9 bg-teal-505 bg-teal-600 rounded-xl flex items-center justify-center text-white">
+              <div className="w-9 h-9 bg-teal-600 rounded-xl flex items-center justify-center text-white">
                 <Activity className="w-5.5 h-5.5 stroke-[2.5]" />
               </div>
               <span className="text-xl font-bold tracking-tight text-white">
@@ -36,7 +36,7 @@ export default function Footer() {
           </div>
           
           {/* Links Col 1 */}
-          <div className="col-span-1 md:col-span-2.5 col-start-7 text-left">
+          <div className="col-span-1 md:col-span-3 col-start-7 text-left">
             <h4 className="font-bold text-white mb-6 uppercase text-[10px] tracking-widest text-[#94a3b8]">Product</h4>
             <ul className="space-y-3.5 text-xs font-medium">
               <li><a href="#hero" className="hover:text-white transition-colors">Risk Assessment</a></li>
@@ -46,7 +46,7 @@ export default function Footer() {
           </div>
           
           {/* Links Col 2 */}
-          <div className="col-span-1 md:col-span-2.5 text-left">
+          <div className="col-span-1 md:col-span-3 text-left">
             <h4 className="font-bold text-white mb-6 uppercase text-[10px] tracking-widest text-[#94a3b8]">Company</h4>
             <ul className="space-y-3.5 text-xs font-medium">
               <li><a href="#conditions" className="hover:text-white transition-colors">Conditions Covered</a></li>

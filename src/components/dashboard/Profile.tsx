@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Activity, ArrowLeft, User, Mail, Globe, Heart, Shield, PlusCircle } from "lucide-react";
+import { Activity, ArrowLeft, User, Mail, Globe, Heart, Shield, Save, Loader2 } from "lucide-react";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface ProfileProps {
   userProfile: {
@@ -20,6 +21,49 @@ interface ProfileProps {
 }
 
 export default function Profile({ userProfile, setUserProfile, onBack }: ProfileProps) {
+  const { updateUserProfile } = useAuth();
+  
+  const [localProfile, setLocalProfile] = useState({
+    fullName: userProfile.fullName || "",
+    email: userProfile.email || "",
+    location: userProfile.location || "North America",
+    ethnicity: userProfile.ethnicity || "Prefer not to say",
+    bloodType: userProfile.bloodType || "Unknown",
+    allergies: userProfile.allergies || "",
+    chronicConditions: userProfile.chronicConditions || "",
+    medications: userProfile.medications || ""
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSaveSuccess(false);
+
+    try {
+      await updateUserProfile({
+        fullName: localProfile.fullName,
+        location: localProfile.location,
+        ethnicity: localProfile.ethnicity,
+        bloodType: localProfile.bloodType,
+        allergies: localProfile.allergies,
+        chronicConditions: localProfile.chronicConditions,
+        medications: localProfile.medications
+      });
+      // Sync upstream component state
+      setUserProfile(localProfile);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Profile save error:", err);
+      alert("Failed to secure changes in Cloud database. Please check permissions.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Profile Nav */}
@@ -28,8 +72,9 @@ export default function Profile({ userProfile, setUserProfile, onBack }: Profile
           <div className="flex items-center gap-4">
             <button 
               onClick={onBack}
-              className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors"
+              className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors cursor-pointer"
               title="Go Back"
+              disabled={saving}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -53,164 +98,203 @@ export default function Profile({ userProfile, setUserProfile, onBack }: Profile
       </nav>
 
       <main className="pt-24 pb-20 px-4 sm:px-6 lg:px-12 max-w-4xl mx-auto">
-        <header className="mb-10">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-20 h-20 bg-medical-primary/10 rounded-[28px] flex items-center justify-center text-medical-primary mb-6"
-          >
-            <User className="w-10 h-10" />
-          </motion.div>
-          <h1 className="text-3xl font-black text-slate-900">User Profile</h1>
-          <p className="text-slate-500 mt-2">Manage your personal and medical information for more accurate health analysis.</p>
-        </header>
-
-        <div className="space-y-8">
-          {/* Account Information Card */}
-          <motion.section 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 sm:p-10 rounded-[40px] shadow-sm border border-slate-100"
-          >
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
-                <Mail className="w-4 h-4" />
-              </div>
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Account Details</h2>
+        <form onSubmit={handleSave}>
+          <header className="mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-16 h-16 bg-medical-primary/10 rounded-[24px] flex items-center justify-center text-medical-primary mb-4"
+              >
+                <User className="w-8 h-8" />
+              </motion.div>
+              <h1 className="text-3xl font-black text-slate-900">User Profile</h1>
+              <p className="text-slate-500 mt-2 text-sm leading-relaxed">Manage your personal and medical information for more accurate health analysis.</p>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Input 
-                label="Full Name" 
-                value={userProfile.fullName}
-                onChange={(e) => setUserProfile({...userProfile, fullName: e.target.value})}
-                placeholder="Janey Doe"
-              />
-              <Input 
-                label="Email Identity" 
-                value={userProfile.email}
-                disabled
-                className="bg-slate-50 cursor-not-allowed opacity-70"
-                onChange={() => {}} 
-              />
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1 flex items-center gap-2">
-                  <Globe className="w-3 h-3 text-slate-400" /> Geographic Region
-                </label>
-                <select 
-                  value={userProfile.location}
-                  onChange={(e) => setUserProfile({...userProfile, location: e.target.value})}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-medical-primary/5 focus:border-medical-primary transition-all appearance-none"
-                >
-                  <option value="North America">North America</option>
-                  <option value="Europe">Europe</option>
-                  <option value="Asia">Asia</option>
-                  <option value="Africa">Africa</option>
-                  <option value="South America">South America</option>
-                  <option value="Oceania">Oceania</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1">Ethnicity Group</label>
-                <select 
-                  value={userProfile.ethnicity}
-                  onChange={(e) => setUserProfile({...userProfile, ethnicity: e.target.value})}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-medical-primary/5 focus:border-medical-primary transition-all appearance-none"
-                >
-                  <option value="Asian">Asian</option>
-                  <option value="Black">Black</option>
-                  <option value="Hispanic">Hispanic</option>
-                  <option value="White">White</option>
-                  <option value="Other">Other</option>
-                  <option value="Prefer not to say">Prefer not to say</option>
-                </select>
-              </div>
+            
+            <div className="flex-shrink-0 flex items-center gap-2">
+              <Button 
+                type="submit" 
+                size="md" 
+                className="flex items-center gap-2 border shadow-lg shadow-medical-primary/10 cursor-pointer"
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {saving ? "Securing..." : "Save Profile"}
+              </Button>
             </div>
-          </motion.section>
+          </header>
 
-          {/* Medical Record Card */}
-          <motion.section 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white p-6 sm:p-10 rounded-[40px] shadow-sm border border-slate-100"
-          >
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-medical-primary">
-                <Heart className="w-4 h-4" />
+          <div className="space-y-8">
+            {saveSuccess && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-emerald-50 border border-emerald-100 text-emerald-700 p-4 rounded-2xl text-xs font-bold flex items-center gap-2"
+              >
+                <Shield className="w-4 h-4" /> Clinical Profile secured and clinical records mapped successfully.
+              </motion.div>
+            )}
+
+            {/* Account Information Card */}
+            <motion.section 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-6 sm:p-10 rounded-[40px] shadow-sm border border-slate-100"
+            >
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Account Details</h2>
               </div>
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Clinical Background</h2>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="flex flex-col gap-1.5 md:col-span-2">
-                <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1">Blood Type</label>
-                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setUserProfile({...userProfile, bloodType: type})}
-                      className={`py-3 px-1 rounded-2xl text-xs font-bold border transition-all ${
-                        userProfile.bloodType === type 
-                        ? "bg-medical-primary text-white border-medical-primary shadow-md" 
-                        : "bg-white text-slate-600 border-slate-100 hover:border-medical-primary/30"
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <Input 
+                  label="Full Name" 
+                  value={localProfile.fullName}
+                  onChange={(e) => setLocalProfile({...localProfile, fullName: e.target.value})}
+                  placeholder="Jane Doe"
+                  disabled={saving}
+                />
+                <Input 
+                  label="Email Identity" 
+                  value={localProfile.email}
+                  disabled
+                  className="bg-slate-50 cursor-not-allowed opacity-70"
+                  onChange={() => {}} 
+                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1 flex items-center gap-2">
+                    <Globe className="w-3 h-3 text-slate-400" /> Geographic Region
+                  </label>
+                  <select 
+                    value={localProfile.location}
+                    onChange={(e) => setLocalProfile({...localProfile, location: e.target.value})}
+                    disabled={saving}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-medical-primary/5 focus:border-medical-primary transition-all appearance-none outline-none cursor-pointer"
+                  >
+                    <option value="North America">North America</option>
+                    <option value="Europe">Europe</option>
+                    <option value="Asia">Asia</option>
+                    <option value="Africa">Africa</option>
+                    <option value="South America">South America</option>
+                    <option value="Oceania">Oceania</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1">Ethnicity Group</label>
+                  <select 
+                    value={localProfile.ethnicity}
+                    onChange={(e) => setLocalProfile({...localProfile, ethnicity: e.target.value})}
+                    disabled={saving}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-medical-primary/5 focus:border-medical-primary transition-all appearance-none outline-none cursor-pointer"
+                  >
+                    <option value="Asian">Asian</option>
+                    <option value="Black">Black</option>
+                    <option value="Hispanic">Hispanic</option>
+                    <option value="White">White</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
                 </div>
               </div>
-              
-              <Input 
-                label="Allergies" 
-                placeholder="e.g. Penicillin, Peanuts"
-                value={userProfile.allergies}
-                onChange={(e) => setUserProfile({...userProfile, allergies: e.target.value})}
-              />
-              <Input 
-                label="Chronic Conditions" 
-                placeholder="e.g. Type 2 Diabetes"
-                value={userProfile.chronicConditions}
-                onChange={(e) => setUserProfile({...userProfile, chronicConditions: e.target.value})}
-              />
-              <div className="md:col-span-2">
-                <Input 
-                  label="Current Medications" 
-                  placeholder="List any medications you take regularly"
-                  value={userProfile.medications}
-                  onChange={(e) => setUserProfile({...userProfile, medications: e.target.value})}
-                />
-              </div>
-            </div>
-          </motion.section>
+            </motion.section>
 
-          {/* Security & Data Section */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="flex flex-col sm:flex-row items-center justify-between p-8 rounded-[32px] bg-slate-900 text-white gap-6"
-          >
-            <div className="flex items-center gap-4 text-center sm:text-left">
-              <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-medical-primary">
-                <Shield className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="font-bold">Encrypted Data Management</h4>
-                <p className="text-xs text-slate-400 mt-1 uppercase tracking-tight">HIPAA Compliant Data Storage Policies</p>
-              </div>
-            </div>
-            <Button 
-              size="lg" 
-              className="bg-white text-slate-900 hover:bg-slate-100 shadow-xl shadow-white/5 whitespace-nowrap"
-              onClick={onBack}
+            {/* Medical Record Card */}
+            <motion.section 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white p-6 sm:p-10 rounded-[40px] shadow-sm border border-slate-100"
             >
-              Update Records
-            </Button>
-          </motion.div>
-        </div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-medical-primary">
+                  <Heart className="w-4 h-4" />
+                </div>
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Clinical Background</h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex flex-col gap-1.5 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1">Blood Type</label>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        disabled={saving}
+                        onClick={() => setLocalProfile({...localProfile, bloodType: type})}
+                        className={`py-3 px-1 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
+                          localProfile.bloodType === type 
+                          ? "bg-medical-primary text-white border-medical-primary shadow-md" 
+                          : "bg-white text-slate-600 border-slate-100 hover:border-medical-primary/30"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <Input 
+                  label="Allergies" 
+                  placeholder="e.g. Penicillin, Peanuts"
+                  value={localProfile.allergies}
+                  onChange={(e) => setLocalProfile({...localProfile, allergies: e.target.value})}
+                  disabled={saving}
+                />
+                <Input 
+                  label="Chronic Conditions" 
+                  placeholder="e.g. Type 2 Diabetes"
+                  value={localProfile.chronicConditions}
+                  onChange={(e) => setLocalProfile({...localProfile, chronicConditions: e.target.value})}
+                  disabled={saving}
+                />
+                <div className="md:col-span-2">
+                  <Input 
+                    label="Current Medications" 
+                    placeholder="List any medications you take regularly"
+                    value={localProfile.medications}
+                    onChange={(e) => setLocalProfile({...localProfile, medications: e.target.value})}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+            </motion.section>
+
+            {/* Security & Data Section */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="flex flex-col sm:flex-row items-center justify-between p-8 rounded-[32px] bg-slate-900 text-white gap-6 animate-fade-in"
+            >
+              <div className="flex items-center gap-4 text-center sm:text-left">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-medical-primary">
+                  <Shield className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="font-bold">Encrypted Data Management</h4>
+                  <p className="text-xs text-slate-400 mt-1 uppercase tracking-tight">Zero-Trust Firestore Sandbox Environment Enabled</p>
+                </div>
+              </div>
+              <Button 
+                type="button"
+                size="lg" 
+                className="bg-white text-slate-900 hover:bg-slate-100 shadow-xl shadow-white/5 whitespace-nowrap cursor-pointer"
+                onClick={onBack}
+                disabled={saving}
+              >
+                Go Back
+              </Button>
+            </motion.div>
+          </div>
+        </form>
       </main>
     </div>
   );

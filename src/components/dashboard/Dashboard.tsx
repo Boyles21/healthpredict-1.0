@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Activity, LogOut, User, ClipboardCheck, Sparkles, AlertCircle, RefreshCw, PieChart, X, FileUp, CheckCircle2, TrendingUp, FileText, Download } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { Activity, LogOut, User, ClipboardCheck, Sparkles, AlertCircle, RefreshCw, PieChart, X, FileUp, CheckCircle2, TrendingUp, FileText, Download, Import } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { jsPDF } from "jspdf";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import Checkbox from "../ui/Checkbox";
+
+import { useAuth } from "../../contexts/AuthContext";
+import { db, handleFirestoreError, OperationType } from "../../lib/firebase";
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface DashboardProps {
   userProfile: {
@@ -23,6 +27,8 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ userProfile, onLogout, onGoToProfile }: DashboardProps) {
+  const { user } = useAuth();
+  
   const [formData, setFormData] = useState({
     age: "",
     weight: "",
@@ -36,10 +42,37 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     skinDarkening: false,
     fastFood: false,
     regularExercise: true,
+    pelvicPain: false,
+    fatigue: false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [bmi, setBmi] = useState<number | null>(null);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [prediction, setPrediction] = useState<{
+    status: string;
+    description: string;
+    likelihood: number;
+    color: string;
+    prediction?: string;
+    dataUsed?: any;
+  } | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [serverStatus, setServerStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [modelStatus, setModelStatus] = useState<boolean>(false);
+  
+  // Real Firestore History state
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  // Migration from localStorage state
+  const [migrationAvailable, setMigrationAvailable] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+
+  // Validate form inputs
   const validate = () => {
     const newErrors: Record<string, string> = {};
     const age = parseInt(formData.age);
@@ -75,23 +108,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     };
   };
 
-  const [bmi, setBmi] = useState<number | null>(null);
-  const [isPredicting, setIsPredicting] = useState(false);
-  const [prediction, setPrediction] = useState<{
-    status: string;
-    description: string;
-    likelihood: number;
-    color: string;
-    prediction?: string;
-    dataUsed?: any;
-  } | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [serverStatus, setServerStatus] = useState<"checking" | "online" | "offline">("checking");
-  const [modelStatus, setModelStatus] = useState<boolean>(false);
-
+  // Check backend server status
   useEffect(() => {
     const checkHealth = async () => {
       try {
@@ -108,12 +125,11 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
       }
     };
     checkHealth();
-    // Poll every 10 seconds during checking or if offline
     const interval = setInterval(checkHealth, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  // BMI calculation logic ...
+  // BMI calculation logic
   useEffect(() => {
     if (formData.weight && formData.height) {
       const w = parseFloat(formData.weight);
@@ -126,31 +142,128 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     }
   }, [formData.weight, formData.height]);
 
-  // Persistent History Logic
-  const [history, setHistory] = useState(() => {
+  // Load History from Firestore
+  const fetchHistory = async () => {
+    if (!user) return;
+    setHistoryLoading(true);
+    try {
+      const q = query(
+        collection(db, "assessments"),
+        where("uid", "==", user.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      const list = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        let dateStr = new Date().toISOString().split("T")[0];
+        if (data.createdAt) {
+          try {
+            dateStr = data.createdAt.toDate().toISOString().split("T")[0];
+          } catch (e) {
+            // Fallback if timestamp form differs
+            dateStr = new Date(data.createdAt).toISOString().split("T")[0];
+          }
+        }
+        return {
+          id: doc.id,
+          ...data,
+          date: dateStr,
+          likelihood: data.predictionPercentage
+        };
+      });
+
+      // Sort client-side by date / creation order descending
+      list.sort((a: any, b: any) => {
+        const t1 = a.createdAt?.seconds || 0;
+        const t2 = b.createdAt?.seconds || 0;
+        return t2 - t1;
+      });
+
+      setHistory(list);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `assessments`);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [user]);
+
+  // Check for device-level history to migrate
+  useEffect(() => {
     const saved = localStorage.getItem("health_predict_history");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMigrationAvailable(true);
+        }
       } catch (e) {
-        console.error("Failed to parse history", e);
+        console.error("Local history check failed:", e);
       }
     }
-    // Updated placeholders with current dates (2026)
-    return [
-      { id: 1, date: "2026-05-15", likelihood: 78 },
-      { id: 2, date: "2026-04-20", likelihood: 15 },
-      { id: 3, date: "2026-03-12", likelihood: 45 },
-    ];
-  });
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem("health_predict_history", JSON.stringify(history));
-  }, [history]);
+  // Handle migration from localStorage to Firestore
+  const handleMigrateHistory = async () => {
+    if (!user) return;
+    setIsMigrating(true);
+    try {
+      const saved = localStorage.getItem("health_predict_history");
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      
+      for (const item of parsed) {
+        // Construct basic placeholder inputs matching required assessments schema
+        const profile = getRiskProfile(item.likelihood || 15);
+        const recStrings = profile.recommendations.map(r => r.text);
+
+        const assessmentDoc = {
+          uid: user.uid,
+          age: 25, // default fallbacks for imported simple histories
+          weight: 60,
+          height: 160,
+          cycleRegularity: "regular",
+          cycleLength: 5,
+          weightGain: false,
+          hairGrowth: false,
+          hairLoss: false,
+          acne: false,
+          skinDarkening: false,
+          fastFood: false,
+          exercise: true,
+          pelvicPain: false,
+          fatigue: false,
+          predictionPercentage: item.likelihood || 15,
+          riskCategory: profile.themeKey.toUpperCase(),
+          recommendations: recStrings,
+          createdAt: serverTimestamp() // timestamp mapping
+        };
+
+        try {
+          await addDoc(collection(db, "assessments"), assessmentDoc);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, "assessments");
+        }
+      }
+
+      // Successful migration: remove old browser local data
+      localStorage.removeItem("health_predict_history");
+      setMigrationAvailable(false);
+      alert("Success! Your offline health assessments have been securely imported back into your Cloud Profile.");
+      await fetchHistory();
+    } catch (e) {
+      console.error("Migration fatal error:", e);
+      alert("Local history migration failed. Please try again.");
+    } finally {
+      setIsMigrating(false);
+    }
+  };
 
   const handleExportPDF = () => {
     if (!prediction) return;
-    const { status, likelihood, description } = prediction;
+    const { likelihood, status, description } = prediction;
     const profile = getRiskProfile(likelihood);
     
     const doc = new jsPDF();
@@ -210,16 +323,18 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     doc.setTextColor(100, 116, 139);
     const dataPoints = [
       `Age: ${formData.age} years`,
-      `BMI: ${bmi || 'N/A'}`,
+      `BMI: ${bmi || "N/A"}`,
       `Cycle Regularity: ${formData.cycleRegularity}`,
       `Cycle Flow: ${formData.cycleLength} days`,
-      `Weight Gain: ${formData.weightGain ? 'Yes' : 'No'}`,
-      `Hair Growth: ${formData.hairGrowth ? 'Yes' : 'No'}`,
-      `Hair Loss: ${formData.hairLoss ? 'Yes' : 'No'}`,
-      `Pimples/Acne: ${formData.pimples ? 'Yes' : 'No'}`,
-      `Skin Darkening: ${formData.skinDarkening ? 'Yes' : 'No'}`,
-      `Fast Food Habits: ${formData.fastFood ? 'Yes' : 'No'}`,
-      `Regular Exercise: ${formData.regularExercise ? 'Yes' : 'No'}`,
+      `Weight Gain: ${formData.weightGain ? "Yes" : "No"}`,
+      `Hair Growth: ${formData.hairGrowth ? "Yes" : "No"}`,
+      `Hair Loss: ${formData.hairLoss ? "Yes" : "No"}`,
+      `Pimples/Acne: ${formData.pimples ? "Yes" : "No"}`,
+      `Skin Darkening: ${formData.skinDarkening ? "Yes" : "No"}`,
+      `Fast Food Habits: ${formData.fastFood ? "Yes" : "No"}`,
+      `Regular Exercise: ${formData.regularExercise ? "Yes" : "No"}`,
+      `Pelvic Pain: ${formData.pelvicPain ? "Yes" : "No"}`,
+      `Fatigue: ${formData.fatigue ? "Yes" : "No"}`,
     ];
     
     dataPoints.forEach((point, index) => {
@@ -235,7 +350,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     const splitDisclaimer = doc.splitTextToSize(disclaimer, 170);
     doc.text(splitDisclaimer, 20, 275);
     
-    doc.save(`HealthPredict_Report_${userProfile.fullName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`HealthPredict_Report_${userProfile.fullName.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   const handleExportCSV = () => {
@@ -262,6 +377,8 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
       ["Skin Darkening", formData.skinDarkening ? "Yes" : "No"],
       ["Fast Food Intake", formData.fastFood ? "Yes" : "No"],
       ["Exercise Habits", formData.regularExercise ? "Yes" : "No"],
+      ["Pelvic Pain", formData.pelvicPain ? "Yes" : "No"],
+      ["Fatigue", formData.fatigue ? "Yes" : "No"],
     ];
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -270,15 +387,21 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `HealthPredict_Data_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `HealthPredict_Data_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const HistorySection = () => {
-    if (history.length === 0) return null;
-    
+    if (historyLoading) {
+      return (
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest py-4">
+          <RefreshCw className="w-4 h-4 animate-spin text-medical-primary" /> Syncing Cloud Database...
+        </div>
+      );
+    }
+
     return (
       <section className="space-y-6">
         <div className="flex items-center justify-between mb-4">
@@ -286,10 +409,28 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
             <PieChart className="w-5 h-5 text-slate-400" />
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-[0.2em]">Prediction History</h2>
           </div>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
-            {history.length} Saved Analysis
-          </span>
+          <div className="flex items-center gap-2">
+            {migrationAvailable && (
+              <Button 
+                onClick={handleMigrateHistory}
+                disabled={isMigrating}
+                className="py-1 px-3 text-[10px] uppercase font-black bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50 rounded-lg flex items-center gap-1.5 cursor-pointer"
+              >
+                <Import className="w-3.5 h-3.5" />
+                {isMigrating ? "Syncing..." : "Migrate Local Data"}
+              </Button>
+            )}
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
+              {history.length} Cloud Analysed
+            </span>
+          </div>
         </div>
+
+        {history.length === 0 && (
+          <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-3xl p-6">
+            <p className="text-sm text-slate-400 italic font-medium">No previous assessments detected on this account. Complete your first assessment above to sync with the cloud.</p>
+          </div>
+        )}
 
         {/* Trend Chart */}
         {history.length > 1 && (
@@ -308,11 +449,11 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
               </div>
             </div>
 
-            <div className="h-48 w-full">
+            <div className="h-48 w-full font-sans">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart 
                   data={[...history].reverse().map(item => ({
-                    date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    date: new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
                     risk: item.likelihood
                   }))}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -328,26 +469,26 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                     dataKey="date" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
+                    tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 600 }}
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
+                    tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 600 }}
                     domain={[0, 100]}
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      borderRadius: '16px', 
-                      border: 'none', 
-                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      padding: '8px 12px'
+                      borderRadius: "16px", 
+                      border: "none", 
+                      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                      fontSize: "11px",
+                      fontWeight: "bold",
+                      padding: "8px 12px"
                     }}
-                    itemStyle={{ color: '#0ea5e9' }}
-                    cursor={{ stroke: '#0ea5e9', strokeWidth: 2, strokeDasharray: '4 4' }}
+                    itemStyle={{ color: "#0ea5e9" }}
+                    cursor={{ stroke: "#0ea5e9", strokeWidth: 2, strokeDasharray: "4 4" }}
                   />
                   <Area 
                     type="monotone" 
@@ -372,7 +513,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                 key={item.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-medical-primary/20 transition-all hover:shadow-md"
+                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:border-medical-primary/20 transition-all hover:shadow-md animate-fade-in"
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm ${profile.theme.bgLight} ${profile.theme.text}`}>
@@ -381,11 +522,11 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                   <div>
                     <h4 className="text-sm font-bold text-slate-900">{profile.status}</h4>
                     <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                      {new Date(item.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      {new Date(item.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2">
                   <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${profile.theme.bgLight} ${profile.theme.text}`}>
                     {profile.badge}
                   </span>
@@ -399,6 +540,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
   };
 
   const handlePredict = async () => {
+    if (!user) return;
     if (!validate()) return;
 
     const payload = prepareMLPayload();
@@ -417,7 +559,6 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
       });
 
       console.log(">>> [FRONTEND] API Response Status:", response.status);
-      console.log(">>> [FRONTEND] API Response Headers:", Object.fromEntries(Array.from(response.headers.entries())));
 
       let data;
       const contentType = response.headers.get("content-type");
@@ -426,37 +567,48 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
       } else {
         const text = await response.text();
         console.error(">>> [FRONTEND] Server returned non-JSON:", text.substring(0, 1000));
-        
-        let displayError = `Server Error: Received non-JSON response (${response.status}).`;
-        if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
-          displayError = "The server returned a webpage instead of data. This usually happens if the backend is not running properly or the API route is misconfigured.";
-        } else if (text.trim().length > 0) {
-          // Escape some chars for display
-          const snippet = text.substring(0, 100).replace(/[<>{}]/g, '_');
-          displayError += ` Content: ${snippet}...`;
-        } else {
-          displayError += " The response was empty.";
-        }
-        throw new Error(displayError);
+        throw new Error("Server returned non-JSON output.");
       }
-
-      console.log(">>> [FRONTEND] Prediction Result:", data);
       
       if (!response.ok || data.status === "error") {
         throw new Error(data.message || "Server analysis error");
       }
+
+      // Save Assessment to Firestore Database (Phase 6 Integration)
+      const profileInfo = getRiskProfile(data.likelihood);
+      const recStrings = profileInfo.recommendations.map(r => r.text);
+
+      const assessmentDoc = {
+        uid: user.uid,
+        age: parseInt(formData.age),
+        weight: parseFloat(formData.weight),
+        height: parseFloat(formData.height),
+        cycleRegularity: formData.cycleRegularity,
+        cycleLength: parseInt(formData.cycleLength),
+        weightGain: formData.weightGain,
+        hairGrowth: formData.hairGrowth,
+        hairLoss: formData.hairLoss,
+        acne: formData.pimples,
+        skinDarkening: formData.skinDarkening,
+        fastFood: formData.fastFood,
+        exercise: formData.regularExercise,
+        pelvicPain: formData.pelvicPain,
+        fatigue: formData.fatigue,
+        predictionPercentage: data.likelihood,
+        riskCategory: profileInfo.themeKey.toUpperCase(),
+        recommendations: recStrings,
+        createdAt: serverTimestamp()
+      };
+
+      try {
+        await addDoc(collection(db, "assessments"), assessmentDoc);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, "assessments");
+      }
       
       setPrediction(data);
-      
-      // Add to history
-      setHistory(prev => [
-        {
-          id: Date.now(),
-          date: new Date().toISOString().split('T')[0],
-          likelihood: data.likelihood,
-        },
-        ...prev
-      ]);
+      // Refresh user's saved list from the cloud
+      await fetchHistory();
     } catch (error: any) {
       console.error("Prediction failed:", error);
       alert(error.message || "Analysis engine encountered an error. Please check your connection.");
@@ -466,6 +618,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -492,44 +645,71 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
       } else {
         const text = await response.text();
         console.error(">>> [FRONTEND] Excel upload returned non-JSON:", text.substring(0, 1000));
-        
-        let displayError = `Server Error: Received non-JSON response (${response.status}).`;
-        if (text.toLowerCase().includes("<!doctype html>") || text.includes("<html")) {
-          displayError = "The server returned a webpage during Excel processing. This usually indicates an API routing issue.";
-        } else if (text.trim().length > 0) {
-          const snippet = text.substring(0, 100).replace(/[<>{}]/g, '_');
-          displayError += ` Content: ${snippet}...`;
-        } else {
-          displayError += " The response was empty.";
-        }
-        throw new Error(displayError);
+        throw new Error("Server returned non-JSON processing results.");
       }
 
       if (result.status === "error") throw new Error(result.message);
 
+      // Save Assessment to Firestore (Phase 6 Integration)
+      const profileInfo = getRiskProfile(result.likelihood);
+      const recStrings = profileInfo.recommendations.map(r => r.text);
+
+      const resolvedData = result.dataUsed || {};
+
+      const assessmentDoc = {
+        uid: user.uid,
+        age: parseInt(resolvedData.age || resolvedData["Age (yrs)"] || formData.age || "25"),
+        weight: parseFloat(resolvedData.weight || resolvedData["Weight (Kg)"] || formData.weight || "60"),
+        height: parseFloat(resolvedData.height || resolvedData["Height(Cm)"] || formData.height || "160"),
+        cycleRegularity: resolvedData.cycleRegularity || (resolvedData["Cycle(R/I)"] === 4 ? "irregular" : "regular"),
+        cycleLength: parseInt(resolvedData.cycleLength || resolvedData["Cycle length(days)"] || formData.cycleLength || "5"),
+        weightGain: resolvedData.weightGain || resolvedData["Weight gain(Y/N)"] === "yes" || false,
+        hairGrowth: resolvedData.hairGrowth || resolvedData["hair growth(Y/N)"] === "yes" || false,
+        hairLoss: resolvedData.hairLoss || resolvedData["Hair loss(Y/N)"] === "yes" || false,
+        acne: resolvedData.pimples || resolvedData["Pimples(Y/N)"] === "yes" || false,
+        skinDarkening: resolvedData.skinDarkening || resolvedData["Skin darkening(Y/N)"] === "yes" || false,
+        fastFood: resolvedData.fastFood || resolvedData["Fast food (Y/N)"] === "yes" || false,
+        exercise: resolvedData.regularExercise || resolvedData["Reg.Exercise(Y/N)"] === "yes" || true,
+        pelvicPain: resolvedData.pelvicPain || false,
+        fatigue: resolvedData.fatigue || false,
+        predictionPercentage: result.likelihood,
+        riskCategory: profileInfo.themeKey.toUpperCase(),
+        recommendations: recStrings,
+        createdAt: serverTimestamp()
+      };
+
+      try {
+        await addDoc(collection(db, "assessments"), assessmentDoc);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, "assessments");
+      }
+
       setPrediction(result);
       setUploadSuccess(true);
-
-      // Add to history
-      setHistory(prev => [
-        {
-          id: Date.now(),
-          date: new Date().toISOString().split('T')[0],
-          likelihood: result.likelihood,
-        },
-        ...prev
-      ]);
       
-      // If we got data back, maybe update the form for transparency
+      // Update form fields for transparency
       if (result.dataUsed) {
         const u = result.dataUsed;
+        const normalizedRegularity = (u["Cycle(R/I)"] === 4) ? "irregular" : "regular";
         setFormData(prev => ({
           ...prev,
-          age: u.age?.toString() || prev.age,
-          weight: u.weight?.toString() || prev.weight,
-          height: u.height?.toString() || prev.height,
+          age: (u.age || u["Age (yrs)"])?.toString() || prev.age,
+          weight: (u.weight || u["Weight (Kg)"])?.toString() || prev.weight,
+          height: (u.height || u["Height(Cm)"])?.toString() || prev.height,
+          cycleLength: (u.cycleLength || u["Cycle length(days)"])?.toString() || prev.cycleLength,
+          cycleRegularity: u.cycleRegularity || normalizedRegularity || prev.cycleRegularity,
+          weightGain: u.weightGain || u["Weight gain(Y/N)"] === "yes" || prev.weightGain,
+          hairGrowth: u.hairGrowth || u["hair growth(Y/N)"] === "yes" || prev.hairGrowth,
+          hairLoss: u.hairLoss || u["Hair loss(Y/N)"] === "yes" || prev.hairLoss,
+          pimples: u.pimples || u["Pimples(Y/N)"] === "yes" || prev.pimples,
+          skinDarkening: u.skinDarkening || u["Skin darkening(Y/N)"] === "yes" || prev.skinDarkening,
+          fastFood: u.fastFood || u["Fast food (Y/N)"] === "yes" || prev.fastFood,
+          regularExercise: u.regularExercise || u["Reg.Exercise(Y/N)"] === "yes" || prev.regularExercise,
         }));
       }
+
+      // Refresh assessments list
+      await fetchHistory();
 
     } catch (error) {
       console.error("File upload prediction failed:", error);
@@ -557,7 +737,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
         badge: "Low Risk Profile",
         description: "Your health metrics currently show minimal correlation with major PCOS indicators.",
         colorClass: "text-emerald-600 bg-emerald-50",
-        recommendations: [
+         recommendations: [
           { icon: CheckCircle2, text: "Maintain a healthy balanced lifestyle.", urgent: false },
           { icon: Activity, text: "Continue routine menstrual cycle monitoring.", urgent: false },
           { icon: Sparkles, text: "Keep up with routine preventative medical checkups.", urgent: false },
@@ -622,9 +802,6 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
 
     const theme = themeStyles[profile.themeKey];
 
-    // Debugging logs
-    console.log(`>>> [UI] Prediction: ${risk}% | Category: ${category} | Theme: ${profile.themeKey}`);
-
     return { ...profile, theme, risk };
   };
 
@@ -644,7 +821,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
           <Button 
             variant="outline" 
             onClick={() => setPrediction(null)}
-            className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
+            className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2 cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
             New Assessment
@@ -653,7 +830,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
             <Button 
               variant="outline" 
               onClick={handleExportPDF}
-              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
+              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2 cursor-pointer"
             >
               <FileText className="w-4 h-4" />
               Export PDF
@@ -661,7 +838,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
             <Button 
               variant="outline" 
               onClick={handleExportCSV}
-              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2"
+              className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-2 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               CSV
@@ -719,20 +896,22 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Assessment Breakdown */}
-          <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 italic font-medium">
+          <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
               <ClipboardCheck className="w-5 h-5 text-medical-primary" />
               Markers Detected
             </h3>
             <div className="space-y-3">
               {[
-                { label: "Cycle", value: formData.cycleRegularity === "irregular" ? "Irregular Patterns" : "Regular Intervals", active: formData.cycleRegularity === "irregular" },
-                { label: "Weight", value: "Unexplained Gain", active: formData.weightGain },
-                { label: "Hirsutism", value: "Excess Hair Growth", active: formData.hairGrowth },
-                { label: "Acne", value: "Skin Breakouts", active: formData.pimples },
-                { label: "Skin", value: "Darkening Patches", active: formData.skinDarkening },
+                { label: "Cycle Flow Regularity", value: formData.cycleRegularity === "irregular" ? "Irregular Patterns" : "Regular Intervals", active: formData.cycleRegularity === "irregular" },
+                { label: "Weight Dynamics", value: "Unexplained Gain", active: formData.weightGain },
+                { label: "Hirsutism Signs", value: "Excess Hair Growth", active: formData.hairGrowth },
+                { label: "Acne Flareups", value: "Skin Breakouts", active: formData.pimples },
+                { label: "Dermal Melasma", value: "Darkening Patches", active: formData.skinDarkening },
+                { label: "Pelvic Tendency", value: "Lower Chronic Pain", active: formData.pelvicPain },
+                { label: "Energy Index", value: "Persistent Fatigue", active: formData.fatigue },
               ].map((item, idx) => (
-                <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border ${item.active ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-slate-50 border-slate-100 text-slate-400 opacity-50'}`}>
+                <div key={idx} className={`flex items-center justify-between p-3 rounded-xl border ${item.active ? "bg-rose-50 border-rose-100 text-rose-700 font-semibold" : "bg-slate-50 border-slate-200 text-slate-600 font-semibold"}`}>
                   <span className="text-xs font-bold uppercase">{item.label}</span>
                   <span className="text-xs font-medium">{item.active ? item.value : "Normal"}</span>
                 </div>
@@ -741,18 +920,21 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
           </div>
 
           {/* Recommendations */}
-          <div className="bg-navy-900 text-white p-8 rounded-[32px] shadow-sm border border-navy-800">
+          <div className="bg-slate-900 text-white p-8 rounded-[32px] shadow-sm border border-slate-800">
             <h3 className="text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-teal-400" />
               Recommendations
             </h3>
-            <ul className="space-y-4">
-              {recommendations.map((rec, idx) => (
-                <li key={idx} className="flex gap-3 items-start">
-                  <rec.icon className={`w-5 h-5 flex-shrink-0 ${rec.urgent ? (themeKey === 'rose' ? 'text-rose-400' : 'text-amber-400') : 'text-teal-400'}`} />
-                  <p className="text-sm text-slate-300 leading-snug">{rec.text}</p>
-                </li>
-              ))}
+            <ul className="space-y-4 font-sans">
+              {recommendations.map((rec, idx) => {
+                const IconComp = rec.icon;
+                return (
+                  <li key={idx} className="flex gap-3 items-start">
+                    <IconComp className={`w-5 h-5 flex-shrink-0 ${rec.urgent ? (themeKey === "rose" ? "text-rose-400" : "text-amber-400") : "text-teal-400"}`} />
+                    <p className="text-sm text-slate-300 leading-snug">{rec.text}</p>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
@@ -775,7 +957,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ... Dashboard Nav code ... */}
+      {/* Dashboard Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 flex justify-between h-16 items-center">
           <div className="flex items-center gap-2">
@@ -787,24 +969,24 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
             </span>
           </div>
 
-          <div className="flex items-center gap-2 mr-Auto ml-4">
-            <div className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? (modelStatus ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-red-500'} animate-pulse`} />
+          <div className="flex items-center gap-2 mr-auto ml-4">
+            <div className={`w-2 h-2 rounded-full ${serverStatus === "online" ? (modelStatus ? "bg-emerald-500" : "bg-amber-500") : "bg-red-500"} animate-pulse`} />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:inline">
-              {serverStatus === 'online' ? (modelStatus ? 'Analysis Ready' : 'Initializing Model') : 'Backend Offline'}
+              {serverStatus === "online" ? (modelStatus ? "Analysis Ready" : "Initializing Model") : "Backend Offline"}
             </span>
           </div>
           
           <div className="flex items-center gap-4">
             <button 
               onClick={onGoToProfile}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 hover:border-medical-primary/30 transition-all font-bold text-slate-600"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 hover:border-medical-primary/30 transition-all font-bold text-slate-600 cursor-pointer"
             >
               <User className="w-4 h-4 text-slate-400" />
               <span className="text-xs uppercase tracking-wider">{userProfile.fullName}</span>
             </button>
             <button 
               onClick={onLogout}
-              className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+              className="p-2 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
               title="Logout"
             >
               <LogOut className="w-5 h-5" />
@@ -837,7 +1019,6 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
             <div className="space-y-12">
               <PredictionView key="results" />
               
-              {/* History Section duplicated for visibility in Results View */}
               <div className="max-w-4xl mx-auto pt-12 border-t border-slate-100">
                 <HistorySection />
               </div>
@@ -863,7 +1044,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                     />
                     <Button 
                       variant="outline" 
-                      className="rounded-2xl flex items-center gap-2 h-12 px-6 border-medical-primary/20 hover:bg-medical-primary/5 text-medical-primary font-bold transition-all"
+                      className="rounded-2xl flex items-center gap-2 h-12 px-6 border-medical-primary/20 hover:bg-medical-primary/5 text-medical-primary font-bold transition-all cursor-pointer"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
                     >
@@ -883,7 +1064,6 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                   className="bg-white p-6 sm:p-8 rounded-[32px] shadow-sm border border-slate-100"
                 >
                   <div className="space-y-8">
-                {/* ... existing form sections ... */}
                 {/* Personal Data Section */}
                 <section>
                   <div className="flex items-center gap-2 mb-6">
@@ -994,6 +1174,18 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                         checked={formData.skinDarkening} 
                         onChange={() => setFormData({...formData, skinDarkening: !formData.skinDarkening})} 
                       />
+                      <Checkbox 
+                        label="Chronic Pelvic Pain" 
+                        description="Regular pain or discomfort in the lower pelvic region"
+                        checked={formData.pelvicPain} 
+                        onChange={() => setFormData({...formData, pelvicPain: !formData.pelvicPain})} 
+                      />
+                      <Checkbox 
+                        label="Persistent Fatigue" 
+                        description="General tiredness, low energy, or chronic exhaustion"
+                        checked={formData.fatigue} 
+                        onChange={() => setFormData({...formData, fatigue: !formData.fatigue})} 
+                      />
                     </div>
                   </div>
                 </section>
@@ -1021,7 +1213,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                 </section>
 
                 <Button 
-                  className="w-full py-5 text-base flex items-center justify-center gap-3" 
+                  className="w-full py-5 text-base flex items-center justify-center gap-3 cursor-pointer" 
                   size="lg"
                   onClick={handlePredict}
                   disabled={isPredicting}
@@ -1037,7 +1229,6 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
               </div>
             </motion.div>
 
-            {/* History Section Refactored to a Component or Sub-block */}
             <div className="pt-8">
               <HistorySection />
             </div>

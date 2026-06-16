@@ -59,7 +59,7 @@ export default function ResultsPreview() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="w-full max-w-lg bg-white border border-slate-105 rounded-2xl shadow-xl overflow-hidden text-left"
+              className="w-full max-w-lg bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden text-left"
             >
               {/* Card Header Banner */}
               <div className="bg-slate-950 p-6 text-white flex items-center justify-between">

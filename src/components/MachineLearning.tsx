@@ -131,7 +131,7 @@ export default function MachineLearning() {
                   
                   <ul className="space-y-1.5">
                     {topic.bulletPoints.map((bp, i) => (
-                      <li key={i} className="flex items-center gap-2 text-xs text-slate-705 font-medium">
+                      <li key={i} className="flex items-center gap-2 text-xs text-slate-700 font-medium">
                         <CheckCircle className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
                         <span>{bp}</span>
                       </li>

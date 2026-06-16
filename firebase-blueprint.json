@@ -1,0 +1,193 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents an authenticated user in the system.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The unique Firebase Auth identifier of the user."
+        },
+        "fullName": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user registered."
+        },
+        "lastLogin": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user last logged in."
+        }
+      },
+      "required": ["uid", "fullName", "email", "createdAt", "lastLogin"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "Contains demographics and clinical background information.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's authentication UID."
+        },
+        "location": {
+          "type": "string",
+          "description": "Geographic location of the user."
+        },
+        "ethnicity": {
+          "type": "string",
+          "description": "Ethnicity of the user."
+        },
+        "bloodType": {
+          "type": "string",
+          "description": "Blood type (e.g., A+, AB-)."
+        },
+        "allergies": {
+          "type": "string",
+          "description": "List of user allergies."
+        },
+        "chronicConditions": {
+          "type": "string",
+          "description": "Any chronic conditions the user has."
+        },
+        "medications": {
+          "type": "string",
+          "description": "Currently taken medications."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of the last profile update."
+        }
+      },
+      "required": ["uid", "location", "ethnicity", "bloodType", "allergies", "chronicConditions", "medications", "updatedAt"]
+    },
+    "Assessment": {
+      "title": "Assessment",
+      "description": "An individual clinical health assessment containing prediction inputs, results, and recommendations.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The UID of the user who took this assessment."
+        },
+        "age": {
+          "type": "number",
+          "description": "Age of the user (12-60)."
+        },
+        "weight": {
+          "type": "number",
+          "description": "Weight of the user in kg (30-200)."
+        },
+        "height": {
+          "type": "number",
+          "description": "Height of the user in cm (100-220)."
+        },
+        "cycleLength": {
+          "type": "number",
+          "description": "Typical flow duration (2-15 days)."
+        },
+        "cycleRegularity": {
+          "type": "string",
+          "description": "Whether the cycle is regular or irregular."
+        },
+        "weightGain": {
+          "type": "boolean",
+          "description": "Is experiencing weight gain."
+        },
+        "hairGrowth": {
+          "type": "boolean",
+          "description": "Is experiencing abnormal hair growth."
+        },
+        "hairLoss": {
+          "type": "boolean",
+          "description": "Is experiencing hair loss."
+        },
+        "acne": {
+          "type": "boolean",
+          "description": "Is experiencing acne/pimples."
+        },
+        "skinDarkening": {
+          "type": "boolean",
+          "description": "Is experiencing skin darkening."
+        },
+        "fastFood": {
+          "type": "boolean",
+          "description": "Has high fast food intake."
+        },
+        "exercise": {
+          "type": "boolean",
+          "description": "Performs regular physical exercise."
+        },
+        "pelvicPain": {
+          "type": "boolean",
+          "description": "Experiences regular pelvic pain."
+        },
+        "fatigue": {
+          "type": "boolean",
+          "description": "Experiences fatigue."
+        },
+        "predictionPercentage": {
+          "type": "number",
+          "description": "The predicted likelihood percentage from the model (5-98)."
+        },
+        "riskCategory": {
+          "type": "string",
+          "description": "Risk profile level (LOW, MODERATE, HIGH)."
+        },
+        "recommendations": {
+          "type": "array",
+          "description": "The list of structured recommendation texts generated for this assessment."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of this assessment creation."
+        }
+      },
+      "required": [
+        "uid",
+        "age",
+        "weight",
+        "height",
+        "cycleRegularity",
+        "cycleLength",
+        "weightGain",
+        "hairGrowth",
+        "hairLoss",
+        "acne",
+        "skinDarkening",
+        "fastFood",
+        "exercise",
+        "predictionPercentage",
+        "riskCategory",
+        "recommendations",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User documents mapping uid to primary metadata."
+    },
+    "/profiles/{uid}": {
+      "schema": "Profile",
+      "description": "Demographic and clinical backgrounds of each user, keyed by uid."
+    },
+    "/assessments/{assessmentId}": {
+      "schema": "Assessment",
+      "description": "Historical health prediction results and user entries."
+    }
+  }
+}

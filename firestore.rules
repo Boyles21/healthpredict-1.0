@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (default deny catch-all)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Schema Validation Helpers
+    function isValidUser(data) {
+      return data.uid is string 
+        && data.uid.size() <= 128
+        && data.fullName is string 
+        && data.fullName.size() <= 200
+        && data.email is string 
+        && data.email.size() <= 200
+        && data.createdAt is timestamp
+        && data.lastLogin is timestamp;
+    }
+
+    function isValidProfile(data) {
+      return data.uid is string
+        && data.uid.size() <= 128
+        && data.fullName is string
+        && data.fullName.size() <= 200
+        && data.email is string
+        && data.email.size() <= 200
+        && data.location is string
+        && data.location.size() <= 500
+        && data.ethnicity is string
+        && data.ethnicity.size() <= 500
+        && data.bloodType is string
+        && data.bloodType.size() <= 20
+        && data.allergies is string
+        && data.allergies.size() <= 1000
+        && data.chronicConditions is string
+        && data.chronicConditions.size() <= 1000
+        && data.medications is string
+        && data.medications.size() <= 1000
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAssessment(data) {
+      return data.uid is string
+        && data.uid.size() <= 128
+        && data.age is int
+        && data.age >= 12
+        && data.age <= 60
+        && (data.weight is int || data.weight is float)
+        && data.weight >= 30.0
+        && data.weight <= 200.0
+        && (data.height is int || data.height is float)
+        && data.height >= 100.0
+        && data.height <= 220.0
+        && data.cycleRegularity is string
+        && data.cycleRegularity.size() <= 50
+        && data.cycleLength is int
+        && data.cycleLength >= 1
+        && data.cycleLength <= 100
+        && data.weightGain is bool
+        && data.hairGrowth is bool
+        && data.hairLoss is bool
+        && data.acne is bool
+        && data.skinDarkening is bool
+        && data.fastFood is bool
+        && data.exercise is bool
+        && data.pelvicPain is bool
+        && data.fatigue is bool
+        && (data.predictionPercentage is int || data.predictionPercentage is float)
+        && data.predictionPercentage >= 0.0
+        && data.predictionPercentage <= 100.0
+        && data.riskCategory is string
+        && data.riskCategory.size() <= 50
+        && data.recommendations is list
+        && data.recommendations.size() <= 50
+        && data.createdAt is timestamp;
+    }
+
+    // 1. Users Collection
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) 
+        && isValidUser(incoming())
+        && incoming().createdAt == request.time
+        && incoming().lastLogin == request.time;
+        
+      allow update: if isOwner(uid)
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().lastLogin == request.time;
+    }
+
+    // 2. Profiles Collection
+    match /profiles/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && isValidProfile(incoming())
+        && incoming().updatedAt == request.time;
+        
+      allow update: if isOwner(uid)
+        && isValidProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time;
+    }
+
+    // 3. Assessments Collection
+    match /assessments/{assessmentId} {
+      allow get: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      
+      allow create: if isSignedIn()
+        && incoming().uid == request.auth.uid
+        && isValidAssessment(incoming())
+        && incoming().createdAt == request.time;
+        
+      // Assessments are immutable after upload
+      allow update, delete: if false;
+    }
+  }
+}
