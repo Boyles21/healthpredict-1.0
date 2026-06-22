@@ -16,6 +16,12 @@ try {
 let fibroidModel: RandomForestClassifier | null = null;
 let fibroidModelError: string | null = null;
 
+// Decision threshold for classifying as "High Risk".
+// Lower than the library default of 0.5 to favor recall, which matters
+// more than precision in a health-screening context (missing a positive
+// case is worse than a false alarm).
+const DECISION_THRESHOLD = 0.35;
+
 /**
  * Feature names for the fibroid dataset (16 features)
  */
@@ -56,12 +62,53 @@ function shuffleData(X: number[][], y: number[]) {
 }
 
 /**
- * Evaluates the fibroid model using standard metrics
+ * Oversamples the minority class in the TRAINING set only, by randomly
+ * duplicating minority-class rows (with replacement) until the classes
+ * are balanced. This must only ever be applied to X_train/y_train —
+ * never to the test set, or evaluation metrics become meaningless.
  */
-function evaluateFibroid(X_test: number[][], y_test: number[]) {
+function oversampleMinorityClass(X: number[][], y: number[]) {
+  const positives: number[][] = [];
+  const negatives: number[][] = [];
+
+  X.forEach((row, i) => {
+    if (y[i] === 1) positives.push(row);
+    else negatives.push(row);
+  });
+
+  const majorityCount = Math.max(positives.length, negatives.length);
+  const minority = positives.length < negatives.length ? positives : negatives;
+  const minorityLabel = positives.length < negatives.length ? 1 : 0;
+
+  const oversampledMinority: number[][] = [...minority];
+  while (oversampledMinority.length < majorityCount) {
+    const randomIdx = Math.floor(Math.random() * minority.length);
+    oversampledMinority.push(minority[randomIdx]);
+  }
+
+  const majority = positives.length < negatives.length ? negatives : positives;
+  const majorityLabel = positives.length < negatives.length ? 0 : 1;
+
+  const X_balanced = [...majority, ...oversampledMinority];
+  const y_balanced = [
+    ...majority.map(() => majorityLabel),
+    ...oversampledMinority.map(() => minorityLabel),
+  ];
+
+  return shuffleData(X_balanced, y_balanced);
+}
+
+/**
+ * Evaluates the fibroid model using standard metrics at a given threshold.
+ * Uses predictProbability + DECISION_THRESHOLD instead of the library's
+ * default .predict() cutoff, so metrics reflect the actual threshold used
+ * at inference time.
+ */
+function evaluateFibroid(X_test: number[][], y_test: number[], threshold = DECISION_THRESHOLD) {
   if (!fibroidModel || X_test.length === 0) return;
 
-  const predictions = fibroidModel.predict(X_test);
+  const probabilities = fibroidModel.predictProbability(X_test, 1);
+  const predictions = probabilities.map((p) => (p >= threshold ? 1 : 0));
 
   let tp = 0;
   let tn = 0;
@@ -84,6 +131,7 @@ function evaluateFibroid(X_test: number[][], y_test: number[]) {
   const f1Score = (2 * (precision * recall)) / (precision + recall) || 0;
 
   console.log("=== FIBROID MODEL EVALUATION RESULTS ===");
+  console.log(`Threshold: ${threshold}`);
   console.log(`Test set size: ${y_test.length}`);
   console.log(`Test positives: ${y_test.filter((v) => v === 1).length}, negatives: ${y_test.filter((v) => v === 0).length}`);
   console.log(`Accuracy:  ${(accuracy * 100).toFixed(2)}%`);
@@ -153,6 +201,18 @@ export function trainFibroidModel() {
     }
 
     console.log(">>> [FIBROID ML] Parsed records:", allX.length);
+    const totalPositives = ally.filter((v) => v === 1).length;
+    console.log(
+      `>>> [FIBROID ML] Class balance: ${totalPositives} positive (${((totalPositives / ally.length) * 100).toFixed(1)}%), ${
+        ally.length - totalPositives
+      } negative`
+    );
+
+    if (allX.length < 1000) {
+      console.warn(
+        `>>> [FIBROID ML] WARNING: only ${allX.length} rows parsed. If the source dataset was supposed to contain more rows, re-check the CSV file for truncation before trusting these metrics.`
+      );
+    }
 
     const shuffled = shuffleData(allX, ally);
     const splitIndex = Math.floor(shuffled.X.length * 0.8);
@@ -187,15 +247,23 @@ export function trainFibroidModel() {
       }
     }
 
+    // Oversample the minority class in TRAINING data only. The test set
+    // (finalX_test / finalY_test) is left at its natural distribution so
+    // evaluation metrics reflect real-world performance.
+    const balancedTrain = oversampleMinorityClass(finalX_train, finalY_train);
+    console.log(
+      `>>> [FIBROID ML] Training set balanced via oversampling: ${balancedTrain.X.length} rows (was ${finalX_train.length})`
+    );
+
     fibroidModel = new RandomForestClassifier({
-      nEstimators: 300,
-      maxFeatures: 0.3,
+      nEstimators: 200,
+      maxFeatures: 0.8, // higher than before: with 16 features, 0.3 was too restrictive per-split
       replacement: true,
       seed: 42,
-      treeOptions: { maxDepth: 8, minNumSamples: 5 },
+      treeOptions: { maxDepth: 10, minNumSamples: 3 },
     });
 
-    fibroidModel.train(finalX_train, finalY_train);
+    fibroidModel.train(balancedTrain.X, balancedTrain.y);
     console.log(">>> [FIBROID ML] Model trained successfully.");
     evaluateFibroid(finalX_test, finalY_test);
   } catch (error: any) {
@@ -234,7 +302,6 @@ export function predictFibroid(data: Record<string, any>) {
   }
 
   const getVal = (key: string) => {
-    // Try exact key, then lowercase, then snake_case variants
     const candidates = [
       key,
       key.toLowerCase(),
@@ -252,13 +319,11 @@ export function predictFibroid(data: Record<string, any>) {
     return undefined;
   };
 
-  // Numeric features
   const age = parseFloat(getVal("Age") ?? data.age ?? 35) || 35;
   const weight = parseFloat(getVal("Weight_Kg") ?? data.weight ?? data["Weight (Kg)"] ?? 65) || 65;
   const height = parseFloat(getVal("Height_Cm") ?? data.height ?? data["Height(Cm)"] ?? 160) || 160;
   const bmi = parseFloat(getVal("BMI") ?? data.bmi ?? 25) || 25;
 
-  // Boolean symptom features
   const heavyBleeding = normalizeBool(getVal("Heavy_Bleeding") ?? data.heavyBleeding ?? data["Heavy Bleeding"]);
   const prolongedMenstruation = normalizeBool(getVal("Prolonged_Menstruation") ?? data.prolongedMenstruation ?? data["Prolonged Menstruation"]);
   const pelvicPain = normalizeBool(getVal("Pelvic_Pain") ?? data.pelvicPain ?? data["Pelvic Pain"]);
@@ -293,19 +358,14 @@ export function predictFibroid(data: Record<string, any>) {
 
   console.log(">>> [FIBROID ML] Inference Input Array:", JSON.stringify(inputFeatures));
 
-  const predictionClass = fibroidModel.predict([inputFeatures])[0];
+  // Use the real model probability and the tuned decision threshold.
+  // No artificial "boost" — the displayed number IS the model's output.
   const probArray = fibroidModel.predictProbability([inputFeatures], 1);
-  const prob = probArray[0];
+  const prob = probArray[0] || 0;
+  const predictionClass = prob >= DECISION_THRESHOLD ? 1 : 0;
+  const finalLikelihood = Math.round(prob * 100);
 
-  let baseLikelihood = Math.round((prob || 0) * 100);
-
-  // Heuristic boost for medical context if model is conservative
-  if (predictionClass === 1 && baseLikelihood < 50) baseLikelihood = 70;
-  if (predictionClass === 0 && baseLikelihood > 50) baseLikelihood = 20;
-
-  const finalLikelihood = Math.min(Math.max(baseLikelihood, 5), 98);
-
-  console.log(`>>> [FIBROID ML] Result: Class ${predictionClass}, Probability: ${finalLikelihood}%`);
+  console.log(`>>> [FIBROID ML] Result: Class ${predictionClass}, Probability: ${finalLikelihood}% (threshold ${DECISION_THRESHOLD})`);
 
   if (predictionClass === 1) {
     return {
@@ -314,7 +374,7 @@ export function predictFibroid(data: Record<string, any>) {
       status: "Potential Fibroids Detected",
       likelihood: finalLikelihood,
       description:
-        "The AI model identified a pattern of clinical markers (bleeding, pain, swelling) that strongly correlate with uterine fibroid profiles in our medical dataset.",
+        "The AI model identified a pattern of clinical markers (bleeding, pain, swelling) that correlate with uterine fibroid profiles in our medical dataset. This is a screening signal, not a diagnosis — please consult a healthcare provider.",
       color: "text-amber-600 bg-amber-50",
     };
   } else {
@@ -330,16 +390,10 @@ export function predictFibroid(data: Record<string, any>) {
   }
 }
 
-/**
- * Returns whether the fibroid model is ready for inference
- */
 export function isFibroidModelReady(): boolean {
   return fibroidModel !== null;
 }
 
-/**
- * Returns any error message from fibroid model initialization
- */
 export function getFibroidModelError(): string | null {
   return fibroidModelError;
 }
