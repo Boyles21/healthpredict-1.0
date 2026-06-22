@@ -12,6 +12,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
+import firebaseConfig from "../../firebase-applet-config.json";
 
 export interface UserProfile {
   fullName: string;
@@ -31,6 +32,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, fullName: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginAsDemo: () => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -222,6 +224,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithPopup(auth, provider);
   };
 
+  const loginAsDemo = async () => {
+    const dbId = (firebaseConfig.firestoreDatabaseId || "default").replace(/[^a-zA-Z0-9]/g, "");
+    const demoEmail = `demo_${dbId}@healthpredict.org`;
+    const demoPassword = "demoPassword123";
+
+    try {
+      await signInWithEmailAndPassword(auth, demoEmail, demoPassword);
+    } catch (err: any) {
+      if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+        try {
+          await register(demoEmail, demoPassword, "Demo User");
+        } catch (regErr: any) {
+          if (regErr.code === "auth/email-already-in-use") {
+            throw new Error("This demo account exists with a different security code. Please use a standard email signup.");
+          }
+          throw regErr;
+        }
+      } else {
+        throw err;
+      }
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
   };
@@ -289,6 +314,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login, 
       register, 
       loginWithGoogle,
+      loginAsDemo,
       logout, 
       resetPassword, 
       updateUserProfile, 

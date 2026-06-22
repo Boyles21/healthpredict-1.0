@@ -13,7 +13,7 @@ interface LoginProps {
 }
 
 export default function Login({ onBack, onSuccess, onSignup, onForgotPassword }: LoginProps) {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, loginAsDemo } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,7 +29,8 @@ export default function Login({ onBack, onSuccess, onSignup, onForgotPassword }:
     setLoading(true);
 
     try {
-      await login(email, password);
+      // Trim email to prevent common whitespace-related auth/invalid-credential errors
+      await login(email.trim(), password);
       onSuccess();
     } catch (err: any) {
       console.error("Login failed:", err);
@@ -59,6 +60,20 @@ export default function Login({ onBack, onSuccess, onSignup, onForgotPassword }:
     } catch (err: any) {
       console.error("Google authentication failed:", err);
       setError(err.message || "Google Authentication failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoSignIn = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await loginAsDemo();
+      onSuccess();
+    } catch (err: any) {
+      console.error("Demo access sign-in failed:", err);
+      setError(err.message || "Unable to enter demo session. Please try standard Registration.");
     } finally {
       setLoading(false);
     }
@@ -140,7 +155,8 @@ export default function Login({ onBack, onSuccess, onSignup, onForgotPassword }:
             <Button 
               type="button" 
               onClick={handleGoogleSignIn}
-              className="w-full py-4 text-base flex items-center justify-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-all"
+              variant="custom"
+              className="w-full py-4 text-base flex items-center justify-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-all rounded-xl cursor-pointer"
               size="lg" 
               disabled={loading}
             >
@@ -151,6 +167,17 @@ export default function Login({ onBack, onSuccess, onSignup, onForgotPassword }:
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
               </svg>
               Continue with Google
+            </Button>
+
+            <Button 
+              type="button" 
+              onClick={handleDemoSignIn}
+              variant="custom"
+              className="w-full mt-3 py-4 text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2 border border-dashed border-teal-200 bg-teal-50/50 hover:bg-teal-50 text-teal-700 shadow-sm transition-all rounded-xl"
+              disabled={loading}
+              id="btn-demo-signin"
+            >
+              🚀 Instant Demo Access
             </Button>
 
             <div className="mt-8 pt-8 border-t border-slate-50 text-center">

@@ -414,7 +414,8 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
               <Button 
                 onClick={handleMigrateHistory}
                 disabled={isMigrating}
-                className="py-1 px-3 text-[10px] uppercase font-black bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                variant="custom"
+                className="py-1.5 px-3 text-[10px] uppercase font-black bg-amber-100/60 text-amber-800 hover:bg-amber-100 border border-amber-200/50 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
               >
                 <Import className="w-3.5 h-3.5" />
                 {isMigrating ? "Syncing..." : "Migrate Local Data"}

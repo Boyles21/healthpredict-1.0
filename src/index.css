@@ -10,8 +10,6 @@
   --color-medical-secondary: #0ea5e9; /* blue-500 */
   --color-medical-soft-blue: #eff6ff; /* blue-50 */
   --color-medical-soft-teal: #f0fdfa; /* teal-50 */
-  --color-slate-50: #f8fafc;
-  --color-slate-100: #f1f5f9;
 }
 
 @layer base {

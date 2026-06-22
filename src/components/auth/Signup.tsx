@@ -51,7 +51,7 @@ export default function Signup({ onBack, onSuccess, onLogin }: SignupProps) {
     setLoading(true);
 
     try {
-      await register(formData.email, formData.password, formData.fullName);
+      await register(formData.email.trim(), formData.password, formData.fullName.trim());
       onSuccess();
     } catch (err: any) {
       console.error("Registration failed:", err);
@@ -163,7 +163,8 @@ export default function Signup({ onBack, onSuccess, onLogin }: SignupProps) {
             <Button 
               type="button" 
               onClick={handleGoogleSignIn}
-              className="w-full py-4 text-base flex items-center justify-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-all"
+              variant="custom"
+              className="w-full py-4 text-base flex items-center justify-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-all rounded-xl cursor-pointer"
               size="lg" 
               disabled={loading}
             >

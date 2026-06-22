@@ -285,8 +285,9 @@ export default function Profile({ userProfile, setUserProfile, onBack }: Profile
               </div>
               <Button 
                 type="button"
+                variant="custom"
                 size="lg" 
-                className="bg-white text-slate-900 hover:bg-slate-100 shadow-xl shadow-white/5 whitespace-nowrap cursor-pointer"
+                className="bg-white text-slate-900 hover:bg-slate-100 shadow-xl shadow-white/5 px-8 py-4 text-base rounded-full whitespace-nowrap cursor-pointer"
                 onClick={onBack}
                 disabled={saving}
               >
