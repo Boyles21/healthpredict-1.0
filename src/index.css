@@ -12,6 +12,10 @@
   --color-medical-soft-teal: #f0fdfa; /* teal-50 */
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 @layer base {
   body {
     @apply font-sans text-slate-800 antialiased bg-white;

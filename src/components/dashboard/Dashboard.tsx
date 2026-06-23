@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Activity, LogOut, User, ClipboardCheck, Sparkles, AlertCircle, RefreshCw, PieChart, X, FileUp, CheckCircle2, TrendingUp, FileText, Download, Import } from "lucide-react";
+import { Activity, ShieldPlus, LogOut, User, ClipboardCheck, Sparkles, AlertCircle, RefreshCw, PieChart, X, FileUp, CheckCircle2, TrendingUp, FileText, Download, Import, ChevronLeft } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { jsPDF } from "jspdf";
 import Button from "../ui/Button";
@@ -24,27 +24,28 @@ interface DashboardProps {
   };
   onLogout: () => void;
   onGoToProfile: () => void;
+  onBack?: () => void;
+  formData: {
+    age: string;
+    weight: string;
+    height: string;
+    cycleLength: string;
+    cycleRegularity: string;
+    weightGain: boolean;
+    hairGrowth: boolean;
+    hairLoss: boolean;
+    pimples: boolean;
+    skinDarkening: boolean;
+    fastFood: boolean;
+    regularExercise: boolean;
+    pelvicPain: boolean;
+    fatigue: boolean;
+  };
+  setFormData: React.Dispatch<React.SetStateAction<any>>;
 }
 
-export default function Dashboard({ userProfile, onLogout, onGoToProfile }: DashboardProps) {
+export default function Dashboard({ userProfile, onLogout, onGoToProfile, onBack, formData, setFormData }: DashboardProps) {
   const { user } = useAuth();
-  
-  const [formData, setFormData] = useState({
-    age: "",
-    weight: "",
-    height: "",
-    cycleLength: "",
-    cycleRegularity: "regular",
-    weightGain: false,
-    hairGrowth: false,
-    hairLoss: false,
-    pimples: false,
-    skinDarkening: false,
-    fastFood: false,
-    regularExercise: true,
-    pelvicPain: false,
-    fatigue: false,
-  });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [bmi, setBmi] = useState<number | null>(null);
@@ -141,6 +142,68 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
       setBmi(null);
     }
   }, [formData.weight, formData.height]);
+
+  // Real-time validation
+  useEffect(() => {
+    const newErrors = { ...errors };
+    let changed = false;
+
+    if (formData.age !== undefined && formData.age !== "") {
+      const age = parseInt(formData.age);
+      if (isNaN(age) || age < 12 || age > 60) {
+        if (newErrors.age !== "Age must be between 12 and 60") {
+          newErrors.age = "Age must be between 12 and 60";
+          changed = true;
+        }
+      } else if (newErrors.age) {
+        delete newErrors.age;
+        changed = true;
+      }
+    }
+
+    if (formData.weight !== undefined && formData.weight !== "") {
+      const weight = parseFloat(formData.weight);
+      if (isNaN(weight) || weight < 30 || weight > 200) {
+        if (newErrors.weight !== "Enter a valid weight (30-200kg)") {
+          newErrors.weight = "Enter a valid weight (30-200kg)";
+          changed = true;
+        }
+      } else if (newErrors.weight) {
+        delete newErrors.weight;
+        changed = true;
+      }
+    }
+
+    if (formData.height !== undefined && formData.height !== "") {
+      const height = parseFloat(formData.height);
+      if (isNaN(height) || height < 100 || height > 220) {
+        if (newErrors.height !== "Enter a valid height (100-220cm)") {
+          newErrors.height = "Enter a valid height (100-220cm)";
+          changed = true;
+        }
+      } else if (newErrors.height) {
+        delete newErrors.height;
+        changed = true;
+      }
+    }
+
+    if (formData.cycleLength !== undefined && formData.cycleLength !== "") {
+      const cycleLength = parseInt(formData.cycleLength);
+      if (isNaN(cycleLength) || cycleLength < 2 || cycleLength > 15) {
+        if (newErrors.cycleLength !== "Enter typical flow length (2-15 days)") {
+          newErrors.cycleLength = "Enter typical flow length (2-15 days)";
+          changed = true;
+        }
+      } else if (newErrors.cycleLength) {
+        delete newErrors.cycleLength;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setErrors(newErrors);
+    }
+  }, [formData.age, formData.weight, formData.height, formData.cycleLength]);
 
   // Load History from Firestore
   const fetchHistory = async () => {
@@ -542,7 +605,15 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
 
   const handlePredict = async () => {
     if (!user) return;
-    if (!validate()) return;
+    if (!validate()) {
+      setTimeout(() => {
+        const firstErrorEl = document.querySelector(".border-red-500, [class*='border-red-500'], .text-red-500");
+        if (firstErrorEl) {
+          firstErrorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 60);
+      return;
+    }
 
     const payload = prepareMLPayload();
     console.log(">>> [FRONTEND] Processed ML Payload:", payload);
@@ -959,11 +1030,21 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Dashboard Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-100">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 shadow-sm py-2">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 flex justify-between h-16 items-center">
           <div className="flex items-center gap-2">
+            {onBack && (
+              <button 
+                onClick={onBack}
+                className="mr-2 p-1.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center min-w-[40px] min-h-[40px]"
+                title="Return to Selector"
+                aria-label="Return to Selection Hub"
+              >
+                <ChevronLeft className="w-5 h-5 text-slate-600" />
+              </button>
+            )}
             <div className="w-8 h-8 bg-medical-primary rounded-lg flex items-center justify-center text-white">
-              <Activity className="w-5 h-5 stroke-[2.5]" />
+              <ShieldPlus className="w-5 h-5 stroke-[2.5]" />
             </div>
             <span className="text-lg font-bold tracking-tight text-slate-900 hidden sm:inline">
               HealthPredict
@@ -1010,7 +1091,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                 <div className="absolute inset-0 border-4 border-medical-primary/10 rounded-full" />
                 <div className="absolute inset-0 border-4 border-medical-primary border-t-transparent rounded-full animate-spin" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Activity className="w-8 h-8 text-medical-primary animate-pulse" />
+                  <ShieldPlus className="w-8 h-8 text-medical-primary animate-pulse" />
                 </div>
               </div>
               <h2 className="text-2xl font-bold text-slate-900 mb-2">Analyzing Health Markers</h2>
@@ -1030,8 +1111,16 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
               <div className="flex-1 space-y-8">
                 <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                   <div>
-                    <h1 className="text-3xl font-bold text-slate-900">{userProfile.fullName}'s Health Assessment</h1>
-                    <p className="text-slate-500 mt-2">Enter your current health details for a precision AI prediction.</p>
+                    {onBack && (
+                      <button 
+                        onClick={onBack}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-650 uppercase tracking-widest mb-4 hover:translate-x-[-2px] transition-transform min-h-[44px]"
+                      >
+                        <ChevronLeft className="w-4 h-4" /> Back to Selector
+                      </button>
+                    )}
+                    <h1 className="text-3xl font-extrabold text-slate-900">PCOS screening & risk prediction</h1>
+                    <p className="text-slate-500 mt-2">Enter your physical and hormonal biomarkers for an evidence-based screening.</p>
                   </div>
                   
                   {/* Excel Upload Trigger */}
@@ -1073,16 +1162,17 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input 
-                      label="Age (Years)" 
+                      label="Age (Years) * Required" 
                       type="number" 
                       placeholder="25"
+                      autoFocus
                       value={formData.age}
                       onChange={(e) => setFormData({...formData, age: e.target.value})}
                       error={errors.age}
                     />
                     <div className="relative">
                       <Input 
-                        label="Weight (kg)" 
+                        label="Weight (kg) * Required" 
                         type="number" 
                         placeholder="65"
                         value={formData.weight}
@@ -1096,7 +1186,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                       )}
                     </div>
                     <Input 
-                      label="Height (cm)" 
+                      label="Height (cm) * Required" 
                       type="number" 
                       placeholder="165"
                       value={formData.height}
@@ -1104,7 +1194,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                       error={errors.height}
                     />
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1">Menstrual Cycle Regularity</label>
+                      <label className="text-xs font-bold text-slate-900 uppercase tracking-widest px-1">Menstrual Cycle Regularity * Required</label>
                       <select 
                         value={formData.cycleRegularity}
                         onChange={(e) => setFormData({...formData, cycleRegularity: e.target.value})}
@@ -1117,8 +1207,8 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                     </div>
                   </div>
                 </section>
-
-                {/* Menstrual Details Section */}
+ 
+                 {/* Menstrual Details Section */}
                 <section>
                   <div className="flex items-center gap-2 mb-6 text-medical-secondary">
                     <RefreshCw className="w-5 h-5" />
@@ -1126,7 +1216,7 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input 
-                      label="Flow Duration (avg days)" 
+                      label="Flow Duration (avg days) * Required" 
                       type="number" 
                       placeholder="5"
                       description="Average number of days your period lasts"
@@ -1214,17 +1304,17 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile }: Dash
                 </section>
 
                 <Button 
-                  className="w-full py-5 text-base flex items-center justify-center gap-3 cursor-pointer" 
+                  className="w-full py-5 text-base flex items-center justify-center gap-3 cursor-pointer shadow-md hover:shadow-lg transition-all" 
                   size="lg"
                   onClick={handlePredict}
                   disabled={isPredicting}
                 >
                   {isPredicting ? (
                     <>
-                      <RefreshCw className="w-5 h-5 animate-spin" /> Processing...
+                      <RefreshCw className="w-5 h-5 animate-spin" /> Processing Risk Data...
                     </>
                   ) : (
-                    "Run AI Health Prediction"
+                    "Check My PCOS Risk"
                   )}
                 </Button>
               </div>

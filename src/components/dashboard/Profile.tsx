@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Activity, ArrowLeft, User, Mail, Globe, Heart, Shield, Save, Loader2 } from "lucide-react";
+import { ShieldPlus, ArrowLeft, User, Mail, Globe, Heart, Shield, Save, Loader2 } from "lucide-react";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 import { useAuth } from "../../contexts/AuthContext";
@@ -80,7 +80,7 @@ export default function Profile({ userProfile, setUserProfile, onBack }: Profile
             </button>
             <div className="flex items-center gap-2 border-l border-slate-100 pl-4">
               <div className="w-8 h-8 bg-medical-primary rounded-lg flex items-center justify-center text-white">
-                <Activity className="w-5 h-5 stroke-[2.5]" />
+                <ShieldPlus className="w-5 h-5 stroke-[2.5]" />
               </div>
               <span className="text-lg font-bold tracking-tight text-slate-900 hidden sm:inline">
                 HealthPredict Profile

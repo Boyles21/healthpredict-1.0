@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Activity, ArrowLeft } from "lucide-react";
+import { ShieldPlus, ArrowLeft } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
@@ -99,7 +99,7 @@ export default function Login({ onBack, onSuccess, onSignup, onForgotPassword }:
           <div className="bg-white p-8 md:p-10 rounded-[32px] shadow-xl shadow-slate-200/50 border border-slate-100">
             <div className="flex flex-col items-center mb-8 text-center">
               <div className="w-12 h-12 bg-medical-primary rounded-xl flex items-center justify-center text-white mb-4">
-                <Activity className="w-7 h-7 stroke-[2.5]" />
+                <ShieldPlus className="w-7 h-7 stroke-[2.5]" />
               </div>
               <h1 className="text-2xl font-bold text-slate-900">Welcome Back</h1>
               <p className="text-sm text-slate-500 mt-1">Access your HealthPredict dashboard</p>

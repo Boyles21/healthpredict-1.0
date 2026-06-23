@@ -35,73 +35,73 @@ export default function MachineLearning() {
         
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-20">
-          <span className="text-xs font-bold text-teal-600 uppercase tracking-widest bg-teal-50 px-3.5 py-1 rounded-full border border-teal-100/50">
+          <span className="text-xs font-bold text-teal-700 uppercase tracking-widest bg-teal-50 px-3.5 py-1.5 rounded-full border border-teal-200">
             ML Architecture
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-4 tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-6 tracking-tight leading-tight">
             Advanced Machine Learning Screening Engine.
           </h2>
-          <p className="text-slate-500 mt-4 text-sm sm:text-base leading-relaxed">
+          <p className="text-slate-600 font-medium mt-4 text-sm sm:text-base leading-relaxed">
             Discover the mathematics and preprocessing pipeline powering the HealthPredict risk classification models.
           </p>
         </div>
 
         {/* Workflow Diagram */}
         <div className="mb-24">
-          <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 max-w-4xl mx-auto">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8 text-center">Prediction Processing Pipeline</h3>
+          <div className="bg-slate-50/50 rounded-3xl p-8 border border-slate-200 max-w-4xl mx-auto">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-8 text-center">Prediction Processing Pipeline</h3>
             
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative">
+            <div className="flex flex-col md:flex-row items-stretch justify-between gap-6 relative">
               
               {/* Step 1: User Input */}
-              <div className="flex-1 w-full bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center relative z-10 flex flex-col items-center">
+              <div className="flex-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center relative z-10 flex flex-col items-center hover:shadow duration-200 transition-all hover:-translate-y-0.5">
                 <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mb-3">
                   <Keyboard className="w-5 h-5" />
                 </div>
                 <h4 className="text-sm font-bold text-slate-900 mb-1">User Input</h4>
-                <p className="text-[10px] text-slate-400">BMI, Period cycle, Acne, Hirsutism, Pain markers</p>
+                <p className="text-xs text-slate-600 leading-normal">BMI, Period cycle, Acne, Hirsutism, Pain markers</p>
               </div>
 
               {/* Connector */}
-              <div className="hidden md:block text-slate-300 select-none">
+              <div className="hidden md:flex items-center justify-center text-slate-400 select-none">
                 <span className="text-xl font-bold">→</span>
               </div>
 
               {/* Step 2: Data Preprocessing */}
-              <div className="flex-1 w-full bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center relative z-10 flex flex-col items-center">
+              <div className="flex-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center relative z-10 flex flex-col items-center hover:shadow duration-200 transition-all hover:-translate-y-0.5">
                 <div className="w-10 h-10 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center mb-3">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <h4 className="text-sm font-bold text-slate-900 mb-1">Data Processing</h4>
-                <p className="text-[10px] text-slate-400">Factor encoding, Null cleaning, Normalization</p>
+                <p className="text-xs text-slate-600 leading-normal">Factor encoding, Null cleaning, Normalization</p>
               </div>
 
               {/* Connector */}
-              <div className="hidden md:block text-slate-300 select-none">
+              <div className="hidden md:flex items-center justify-center text-slate-400 select-none">
                 <span className="text-xl font-bold">→</span>
               </div>
 
               {/* Step 3: ML Model */}
-              <div className="flex-1 w-full bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center relative z-10 flex flex-col items-center">
+              <div className="flex-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center relative z-10 flex flex-col items-center hover:shadow duration-200 transition-all hover:-translate-y-0.5">
                 <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
                   <Cpu className="w-5 h-5" />
                 </div>
                 <h4 className="text-sm font-bold text-slate-900 mb-1">ML Model</h4>
-                <p className="text-[10px] text-slate-400">Random Forest Classifier, Multi-estimator weights</p>
+                <p className="text-xs text-slate-600 leading-normal">Random Forest Classifier, Multi-estimator weights</p>
               </div>
 
               {/* Connector */}
-              <div className="hidden md:block text-slate-300 select-none">
+              <div className="hidden md:flex items-center justify-center text-slate-400 select-none">
                 <span className="text-xl font-bold">→</span>
               </div>
 
               {/* Step 4: Prediction Results */}
-              <div className="flex-1 w-full bg-white p-5 rounded-2xl border border-slate-100 shadow-sm text-center relative z-10 flex flex-col items-center">
+              <div className="flex-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center relative z-10 flex flex-col items-center hover:shadow duration-200 transition-all hover:-translate-y-0.5">
                 <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
                   <CheckCircle className="w-5 h-5" />
                 </div>
                 <h4 className="text-sm font-bold text-slate-900 mb-1">Results Preview</h4>
-                <p className="text-[10px] text-slate-400">Risk ratio percentage, Detailed indicator breakdown</p>
+                <p className="text-xs text-slate-600 leading-normal">Risk ratio percentage, Detailed indicator breakdown</p>
               </div>
 
             </div>
@@ -119,20 +119,20 @@ export default function MachineLearning() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: index * 0.08 }}
-                className="bg-slate-50/50 p-8 rounded-2xl border border-slate-100 flex flex-col md:flex-row gap-6 text-left hover:bg-slate-50/80 transition-colors"
+                className="bg-slate-50/50 p-8 rounded-3xl border border-slate-200 flex flex-col md:flex-row gap-6 text-left hover:bg-slate-50 hover:-translate-y-1 hover:border-teal-500/20 hover:shadow-lg transition-all duration-300"
               >
-                <div className="w-12 h-12 rounded-xl bg-white text-slate-800 border border-slate-150 flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-white text-slate-800 border border-slate-200 flex items-center justify-center shadow-sm flex-shrink-0">
                   <Icon className="w-6 h-6 text-teal-600" />
                 </div>
                 
                 <div>
                   <h3 className="text-base font-bold text-slate-950 mb-2">{topic.title}</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed mb-4">{topic.description}</p>
+                  <p className="text-sm text-slate-650 leading-relaxed mb-4">{topic.description}</p>
                   
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-1.55">
                     {topic.bulletPoints.map((bp, i) => (
-                      <li key={i} className="flex items-center gap-2 text-xs text-slate-700 font-medium">
-                        <CheckCircle className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+                      <li key={i} className="flex items-center gap-2 text-xs text-slate-800 font-semibold">
+                        <CheckCircle className="w-4 h-4 text-teal-600 flex-shrink-0" />
                         <span>{bp}</span>
                       </li>
                     ))}

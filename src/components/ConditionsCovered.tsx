@@ -7,14 +7,14 @@ export default function ConditionsCovered() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-20 animate-fade-in">
-          <span className="text-xs font-bold text-teal-600 uppercase tracking-widest bg-teal-50 px-3.5 py-1 rounded-full border border-teal-100/50">
+        <div className="text-center max-w-3xl mx-auto mb-20 animate-fade-in animate-duration-500">
+          <span className="text-xs font-bold text-teal-700 uppercase tracking-widest bg-teal-50 px-3.5 py-1.5 rounded-full border border-teal-200">
             Pathological Coverage
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-4 tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-6 tracking-tight leading-tight">
             Comprehensive screening for key gynecological conditions.
           </h2>
-          <p className="text-slate-500 mt-4 text-sm sm:text-base leading-relaxed">
+          <p className="text-slate-600 font-medium mt-4 text-sm sm:text-base leading-relaxed">
             Our technology provides dedicated evaluation across two primary gynecological pathologies that affect millions globally, but are highly under-diagnosed.
           </p>
         </div>
@@ -28,17 +28,17 @@ export default function ConditionsCovered() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.6 }}
-            className="group bg-gradient-to-br from-teal-50/50 via-white to-white border border-teal-100/60 rounded-3xl p-8 lg:p-10 shadow-sm hover:shadow-md hover:border-teal-200 transition-all flex flex-col relative overflow-hidden text-left"
+            className="group bg-gradient-to-br from-teal-50/50 via-white to-white border border-slate-200 rounded-3xl p-8 lg:p-10 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-teal-300 transition-all duration-300 flex flex-col relative overflow-hidden text-left"
           >
             {/* Top colored accent glow */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-teal-300/10 rounded-full blur-2xl -z-10" />
             
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-teal-500 text-white flex items-center justify-center font-bold shadow-md shadow-teal-500/20">
+              <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold shadow-md shadow-teal-600/20">
                 PC
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-teal-600 tracking-wider">Metabolic & Endocrine</span>
+                <span className="text-xs uppercase font-bold text-teal-700 tracking-wider">Metabolic & Endocrine</span>
                 <h3 className="text-2xl font-extrabold text-slate-950">PCOS Prediction</h3>
               </div>
             </div>
@@ -47,7 +47,7 @@ export default function ConditionsCovered() {
               Polycystic Ovary Syndrome (PCOS) is a hormonal disorder common among women of reproductive age. Our model evaluates secondary skin, metabolic, and cycle symptoms to calculate a comprehensive risk rating.
             </p>
 
-            <h4 className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4">Key Symptom Indicators Evaluated</h4>
+            <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest mb-4">Key Symptom Indicators Evaluated</h4>
             
             {/* Symptom list as structured rows */}
             <div className="space-y-3.5 mb-8 flex-grow">
@@ -58,21 +58,21 @@ export default function ConditionsCovered() {
                 { label: "Excess hair growth", desc: "Hirsutism on face, chin, or areas typically male-patterned" },
                 { label: "Hormonal indicators", desc: "Higher biochemical androgen markers or insulin resistance factors" }
               ].map((symptom, idx) => (
-                <div key={idx} className="flex items-start gap-3 bg-teal-50/20 p-3 rounded-lg border border-teal-50/30 hover:bg-teal-50/40 transition-colors">
-                  <div className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1.5 flex-shrink-0" />
+                <div key={idx} className="flex items-start gap-3 bg-teal-50/30 p-3 rounded-lg border border-teal-100/50 hover:bg-teal-50/60 transition-colors duration-300">
+                  <div className="w-1.5 h-1.5 rounded-full bg-teal-600 mt-1.5 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-bold text-slate-900 block">{symptom.label}</span>
-                    <span className="text-[11px] text-slate-500 block">{symptom.desc}</span>
+                    <span className="text-[11px] text-slate-600 block leading-normal mt-0.5">{symptom.desc}</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-medium">Model Sensitivity: ~74.29%</span>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-teal-600">
+            <div className="pt-6 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-semibold">Model Sensitivity: ~74.29%</span>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-teal-600 group-hover:text-teal-700 transition-colors">
                 <span>View scientific basis</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </motion.div>
@@ -83,7 +83,7 @@ export default function ConditionsCovered() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.6 }}
-            className="group bg-gradient-to-br from-sky-50/50 via-white to-white border border-sky-100/60 rounded-3xl p-8 lg:p-10 shadow-sm hover:shadow-md hover:border-sky-200 transition-all flex flex-col relative overflow-hidden text-left"
+            className="group bg-gradient-to-br from-sky-50/50 via-white to-white border border-slate-200 rounded-3xl p-8 lg:p-10 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-sky-300 transition-all duration-300 flex flex-col relative overflow-hidden text-left"
           >
             {/* Top colored accent glow */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-sky-300/10 rounded-full blur-2xl -z-10" />
@@ -93,7 +93,7 @@ export default function ConditionsCovered() {
                 UF
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-sky-600 tracking-wider">Benign Muscular Growths</span>
+                <span className="text-xs uppercase font-bold text-sky-700 tracking-wider">Benign Muscular Growths</span>
                 <h3 className="text-2xl font-extrabold text-slate-950">Uterine Fibroid Prediction</h3>
               </div>
             </div>
@@ -102,7 +102,7 @@ export default function ConditionsCovered() {
               Uterine Fibroids are non-cancerous growths of the uterus that often appear during childbearing years. Our engine processes bleeding intensity, pelvic signals, and energy patterns to isolate sub-clinical fibroid indicators.
             </p>
 
-            <h4 className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4">Key Symptom Indicators Evaluated</h4>
+            <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest mb-4">Key Symptom Indicators Evaluated</h4>
 
             {/* Symptom list as structured rows */}
             <div className="space-y-3.5 mb-8 flex-grow">
@@ -113,21 +113,21 @@ export default function ConditionsCovered() {
                 { label: "Menstrual abnormalities", desc: "Painful cramping (dysmenorrhea) and irregular spotting" },
                 { label: "Reproductive health indicators", desc: "Bladder pressure, frequent urination, or pelvic congestion factors" }
               ].map((symptom, idx) => (
-                <div key={idx} className="flex items-start gap-3 bg-sky-50/20 p-3 rounded-lg border border-sky-50/30 hover:bg-sky-50/40 transition-colors">
+                <div key={idx} className="flex items-start gap-3 bg-sky-50/30 p-3 rounded-lg border border-sky-100/50 hover:bg-sky-50/60 transition-colors duration-300">
                   <div className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 flex-shrink-0" />
                   <div>
                     <span className="text-xs font-bold text-slate-900 block">{symptom.label}</span>
-                    <span className="text-[11px] text-slate-500 block">{symptom.desc}</span>
+                    <span className="text-[11px] text-slate-600 block leading-normal mt-0.5">{symptom.desc}</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-medium">Validation Accuracy: ~90.83%</span>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-sky-600">
+            <div className="pt-6 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-semibold">Validation Accuracy: ~90.83%</span>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-sky-600 group-hover:text-sky-700 transition-colors">
                 <span>View scientific basis</span>
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </motion.div>

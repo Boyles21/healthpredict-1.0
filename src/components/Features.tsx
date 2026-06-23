@@ -46,14 +46,14 @@ export default function Features() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-xs font-bold text-teal-600 uppercase tracking-widest bg-teal-50 px-3.5 py-1 rounded-full border border-teal-100/50">
+        <div className="text-center max-w-3xl mx-auto mb-16 animate-fade-in animate-duration-500">
+          <span className="text-xs font-bold text-teal-750 uppercase tracking-widest bg-teal-50 px-3.5 py-1.5 rounded-full border border-teal-200">
             Platform Capabilities
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-4 tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-6 tracking-tight leading-tight">
             Comprehensive platform features built for wellness discovery.
           </h2>
-          <p className="text-slate-500 mt-4 text-sm leading-relaxed">
+          <p className="text-slate-600 font-medium mt-4 text-sm sm:text-base leading-relaxed">
             Every component of HealthPredict is built with meticulous attention to detail, balancing modern engineering with intuitive, responsive interface layouts.
           </p>
         </div>
@@ -69,17 +69,17 @@ export default function Features() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.5, delay: index * 0.08 }}
-                className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 hover:-translate-y-0.5 transition-all group text-left"
+                className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-teal-500/25 hover:-translate-y-1 transition-all duration-300 group text-left"
               >
-                <div className={`w-11 h-11 rounded-lg flex items-center justify-center mb-6 border ${feature.color} transition-transform group-hover:scale-105 duration-300`}>
+                <div className={`w-11 h-11 rounded-lg flex items-center justify-center mb-6 border ${feature.color.replace('border-teal-100/50', 'border-teal-200').replace('border-sky-100/50', 'border-sky-200').replace('border-indigo-100/50', 'border-indigo-200').replace('border-rose-100/50', 'border-rose-200').replace('border-emerald-100/50', 'border-emerald-200').replace('border-amber-100/50', 'border-amber-200')} transition-transform group-hover:scale-110 duration-300`}>
                   <Icon className="w-5.5 h-5.5" />
                 </div>
                 
-                <h3 className="text-base font-bold text-slate-900 mb-2.5 group-hover:text-teal-600 transition-colors">
+                <h3 className="text-base font-bold text-slate-900 mb-2.5 group-hover:text-teal-600 transition-colors duration-300">
                   {feature.title}
                 </h3>
                 
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-sm text-slate-600 leading-relaxed font-normal">
                   {feature.description}
                 </p>
               </motion.div>

@@ -11,19 +11,19 @@ interface FaqItemProps {
 
 function FaqItem({ question, answer, isOpen, onToggle }: FaqItemProps) {
   return (
-    <div className="border-b border-slate-100 py-5 text-left">
+    <div className="border-b border-slate-200 py-5 text-left">
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-4 font-bold text-slate-900 group text-sm sm:text-base py-2.5 transition-colors duration-200"
+        className="w-full flex items-center justify-between gap-4 font-bold text-slate-900 group text-sm sm:text-base py-2.5 transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 outline-none rounded-xl px-2.5"
       >
-        <span className="group-hover:text-teal-600 transition-colors flex items-center gap-2.5">
-          <HelpCircle className="w-4.5 h-4.5 text-teal-500/80 flex-shrink-0" />
+        <span className="group-hover:text-teal-700 transition-colors flex items-center gap-2.5">
+          <HelpCircle className="w-5 h-5 text-teal-600 flex-shrink-0" />
           {question}
         </span>
         {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-slate-400 group-hover:text-slate-600 flex-shrink-0" />
+          <ChevronUp className="w-5 h-5 text-slate-500 group-hover:text-slate-700 flex-shrink-0" />
         ) : (
-          <ChevronDown className="w-5 h-5 text-slate-400 group-hover:text-slate-600 flex-shrink-0" />
+          <ChevronDown className="w-5 h-5 text-slate-500 group-hover:text-slate-700 flex-shrink-0" />
         )}
       </button>
       <AnimatePresence initial={false}>
@@ -35,7 +35,7 @@ function FaqItem({ question, answer, isOpen, onToggle }: FaqItemProps) {
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed pt-2 pb-4 pr-6">
+            <p className="text-sm text-slate-650 leading-relaxed pt-3 pb-4 pl-8 pr-6">
               {answer}
             </p>
           </motion.div>
@@ -68,24 +68,24 @@ export default function Faq() {
   ];
 
   return (
-    <section id="faq" className="py-24 bg-white border-b border-slate-100">
+    <section id="faq" className="py-24 bg-white border-b border-slate-200">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
         <div className="text-center mb-16">
-          <span className="text-xs font-bold text-teal-600 uppercase tracking-widest bg-teal-50 px-3.5 py-1 rounded-full border border-teal-100/50">
+          <span className="text-xs font-bold text-teal-700 uppercase tracking-widest bg-teal-50 px-3.5 py-1.5 rounded-full border border-teal-200">
             Common Inquiries
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-4 tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-6 tracking-tight leading-tight">
             Frequently Asked Questions.
           </h2>
-          <p className="text-slate-500 mt-4 text-xs sm:text-sm leading-relaxed max-w-xl mx-auto">
+          <p className="text-slate-650 mt-4 text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
             Find immediate answers on the mathematical validation, clinical criteria, data sovereignty, and screening limitations of our ML model solutions.
           </p>
         </div>
 
         {/* FAQ list */}
-        <div className="bg-slate-50/50 border border-slate-100 rounded-3xl p-6 sm:p-10 shadow-sm">
+        <div className="bg-slate-50/50 border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-sm">
           {faqs.map((faq, index) => (
             <FaqItem
               key={index}

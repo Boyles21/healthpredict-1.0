@@ -32,13 +32,13 @@ export default function HowItWorks() {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="text-xs font-bold text-sky-600 uppercase tracking-widest bg-sky-50 px-3.5 py-1 rounded-full border border-sky-100/50">
+          <span className="text-xs font-bold text-sky-700 uppercase tracking-widest bg-sky-50 px-3.5 py-1.5 rounded-full border border-sky-200">
             Workflow Process
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-4 tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-6 tracking-tight leading-tight">
             How the screening works.
           </h2>
-          <p className="text-slate-500 mt-3.5 text-sm sm:text-base leading-relaxed">
+          <p className="text-slate-600 font-medium mt-4 text-sm sm:text-base leading-relaxed">
             In three straightforward steps, receive clinical-grade risk screening metrics for early-detection awareness.
           </p>
         </div>
@@ -47,7 +47,7 @@ export default function HowItWorks() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative">
           
           {/* Connector line for desktop layout */}
-          <div className="absolute top-1/3 left-[15%] right-[15%] h-[2px] bg-slate-200/50 hidden lg:block -z-10" />
+          <div className="absolute top-1/3 left-[15%] right-[15%] h-[2px] bg-slate-200 hidden lg:block -z-10" />
 
           {steps.map((item, index) => {
             const Icon = item.icon;
@@ -58,31 +58,31 @@ export default function HowItWorks() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.5, delay: index * 0.15 }}
-                className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all flex flex-col text-left group min-h-[280px]"
+                className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-teal-500/30 transition-all duration-300 flex flex-col text-left group min-h-[300px]"
               >
                 <div className="flex items-center justify-between mb-6">
                   {/* Step bubble icon */}
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${item.color} font-bold z-10 duration-300 group-hover:scale-105`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${item.color.replace('border-teal-100/50', 'border-teal-200').replace('border-sky-100/50', 'border-sky-200').replace('border-indigo-100/50', 'border-indigo-200')} font-bold z-10 duration-300 group-hover:scale-110`}>
                     <Icon className="w-5.5 h-5.5" />
                   </div>
                   
                   {/* Step counter */}
-                  <span className="text-3xl font-extrabold font-display bg-gradient-to-br from-slate-200 to-slate-300 bg-clip-text text-transparent">
+                  <span className="text-3xl font-extrabold font-display bg-gradient-to-br from-slate-300 to-slate-450 bg-clip-text text-transparent">
                     {item.step}
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-slate-900 mb-3 group-hover:text-teal-600 transition-colors">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 group-hover:text-teal-600 transition-colors duration-300">
                   {item.title}
                 </h3>
                 
-                <p className="text-xs text-slate-500 leading-relaxed flex-grow">
+                <p className="text-sm text-slate-600 leading-relaxed flex-grow">
                   {item.description}
                 </p>
 
-                <div className="mt-5 pt-3.5 border-t border-slate-50 flex items-center justify-between text-[11px] font-bold text-slate-400 group-hover:text-slate-600 transition-colors">
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-500 group-hover:text-teal-600 transition-colors duration-300">
                   <span>Learn workflow metrics</span>
-                  <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </motion.div>
             );
@@ -90,13 +90,13 @@ export default function HowItWorks() {
         </div>
 
         {/* Live processing graphic simulated badge */}
-        <div className="mt-14 max-w-xl mx-auto bg-white border border-slate-100 p-4 rounded-xl shadow-sm text-center flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="mt-14 max-w-xl mx-auto bg-white border border-slate-200 p-4 rounded-xl shadow-sm text-center flex flex-col sm:flex-row items-center justify-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-widest text-[10px]">Real-Time Service Connection Check</span>
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Real-Time Service Connection Check</span>
           </div>
-          <span className="text-xs text-slate-500 italic hidden sm:block">|</span>
-          <p className="text-[11px] text-slate-500">
+          <span className="text-xs text-slate-400 italic hidden sm:block">|</span>
+          <p className="text-xs text-slate-650">
             Average prediction processing speed: <span className="font-bold text-emerald-600">~120 milliseconds</span>
           </p>
         </div>

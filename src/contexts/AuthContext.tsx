@@ -10,7 +10,7 @@ import {
   signInWithPopup,
   updateProfile
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import firebaseConfig from "../../firebase-applet-config.json";
 
@@ -23,6 +23,8 @@ export interface UserProfile {
   allergies: string;
   chronicConditions: string;
   medications: string;
+  role?: "admin" | "user";
+  disabled?: boolean;
 }
 
 interface AuthContextType {
@@ -75,8 +77,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             handleFirestoreError(err, OperationType.GET, `users_profiles/${firebaseUser.uid}`);
           }
           
+          const isAdminEmail = firebaseUser.email === "boluajisebutu45000@gmail.com";
+          let dbRole: "admin" | "user" = isAdminEmail ? "admin" : "user";
+          let isDisabled = false;
+
+          // Force user doc creation in Firestore if it doesn't exist yet but user is active
+          if (userDocSnap && !userDocSnap.exists()) {
+            try {
+              await setDoc(userDocRef, {
+                uid: firebaseUser.uid,
+                fullName: firebaseUser.displayName || "Jane Doe",
+                email: firebaseUser.email || "",
+                createdAt: serverTimestamp(),
+                lastLogin: serverTimestamp(),
+                role: dbRole,
+                disabled: false
+              });
+            } catch (err) {
+              handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
+            }
+          } else if (userDocSnap && userDocSnap.exists()) {
+            const uData = userDocSnap.data();
+            dbRole = uData.role || (isAdminEmail ? "admin" : "user");
+            isDisabled = !!uData.disabled;
+            
+            // Auto update role to admin if it's the bootstrapped administrator
+            if (isAdminEmail && uData.role !== "admin") {
+              dbRole = "admin";
+            }
+
+            // Update last login timestamp and enforce admin role if needed
+            try {
+              await updateDoc(userDocRef, {
+                role: dbRole,
+                lastLogin: serverTimestamp()
+              });
+            } catch (err) {
+              handleFirestoreError(err, OperationType.UPDATE, `users/${firebaseUser.uid}`);
+            }
+          }
+
+          if (isDisabled) {
+            await signOut(auth);
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            alert("This account has been suspended by the administrator.");
+            return;
+          }
+          
           if (profileDocSnap && profileDocSnap.exists()) {
-            setUserProfile(profileDocSnap.data() as UserProfile);
+            const pData = profileDocSnap.data();
+            setUserProfile({
+              ...(pData as UserProfile),
+              role: dbRole,
+              disabled: isDisabled,
+            });
           } else {
             // First time login or fallback: create default profile in Firestore
             const defaultProfile: UserProfile = {
@@ -87,12 +143,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               bloodType: "Unknown",
               allergies: "",
               chronicConditions: "",
-              medications: ""
+              medications: "",
+              role: dbRole,
+              disabled: isDisabled,
             };
             
             try {
               await setDoc(profileDocRef, {
-                ...defaultProfile,
+                fullName: defaultProfile.fullName,
+                email: defaultProfile.email,
+                location: defaultProfile.location,
+                ethnicity: defaultProfile.ethnicity,
+                bloodType: defaultProfile.bloodType,
+                allergies: defaultProfile.allergies,
+                chronicConditions: defaultProfile.chronicConditions,
+                medications: defaultProfile.medications,
                 uid: firebaseUser.uid,
                 updatedAt: serverTimestamp()
               });
@@ -101,31 +166,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             
             setUserProfile(defaultProfile);
-          }
-          
-          // Force user doc creation in Firestore if it doesn't exist yet but user is active
-          if (userDocSnap && !userDocSnap.exists()) {
-            try {
-              await setDoc(userDocRef, {
-                uid: firebaseUser.uid,
-                fullName: firebaseUser.displayName || "Jane Doe",
-                email: firebaseUser.email || "",
-                createdAt: serverTimestamp(),
-                lastLogin: serverTimestamp()
-              });
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
-            }
-          } else if (userDocSnap && userDocSnap.exists()) {
-            // Update last login timestamp
-            try {
-              await setDoc(userDocRef, {
-                ...userDocSnap.data(),
-                lastLogin: serverTimestamp()
-              }, { merge: true });
-            } catch (err) {
-              handleFirestoreError(err, OperationType.UPDATE, `users/${firebaseUser.uid}`);
-            }
           }
           
         } catch (error) {
@@ -179,13 +219,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Create the users collection tracking record
+      const isAdminEmail = email === "boluajisebutu45000@gmail.com";
+      const dbRole: "admin" | "user" = isAdminEmail ? "admin" : "user";
       try {
         await setDoc(doc(db, "users", firebaseUser.uid), {
           uid: firebaseUser.uid,
           fullName: fullName,
           email: email,
           createdAt: serverTimestamp(),
-          lastLogin: serverTimestamp()
+          lastLogin: serverTimestamp(),
+          role: dbRole,
+          disabled: false
         });
       } catch (err) {
         handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
@@ -200,12 +244,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bloodType: "Unknown",
         allergies: "",
         chronicConditions: "",
-        medications: ""
+        medications: "",
+        role: dbRole,
+        disabled: false
       };
 
       try {
         await setDoc(doc(db, "profiles", firebaseUser.uid), {
-          ...defaultProfile,
+          fullName: defaultProfile.fullName,
+          email: defaultProfile.email,
+          location: defaultProfile.location,
+          ethnicity: defaultProfile.ethnicity,
+          bloodType: defaultProfile.bloodType,
+          allergies: defaultProfile.allergies,
+          chronicConditions: defaultProfile.chronicConditions,
+          medications: defaultProfile.medications,
           uid: firebaseUser.uid,
           updatedAt: serverTimestamp()
         });
@@ -276,9 +329,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userDocRef = doc(db, "users", user.uid);
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        await setDoc(userDocRef, {
-          ...userData,
+        await updateDoc(userDocRef, {
           fullName: profileUpdates.fullName || userProfile.fullName,
           lastLogin: serverTimestamp() // needed to satisfy security rule: incoming().lastLogin == action timestamp
         });

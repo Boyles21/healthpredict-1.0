@@ -16,6 +16,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'boluajisebutu45000@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -36,8 +45,10 @@ service cloud.firestore {
         && data.fullName.size() <= 200
         && data.email is string 
         && data.email.size() <= 200
-        && data.createdAt is timestamp
-        && data.lastLogin is timestamp;
+        && (data.createdAt is timestamp || data.createdAt is map)
+        && (data.lastLogin is timestamp || data.lastLogin is map)
+        && (!('role' in data) || (data.role is string && data.role.size() <= 20))
+        && (!('disabled' in data) || data.disabled is bool);
     }
 
     function isValidProfile(data) {
@@ -100,45 +111,55 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{uid} {
-      allow read: if isOwner(uid);
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(uid) 
         && isValidUser(incoming())
         && incoming().createdAt == request.time
-        && incoming().lastLogin == request.time;
+        && incoming().lastLogin == request.time
+        && (!('role' in incoming()) || incoming().role == "user" || ('email' in request.auth.token && request.auth.token.email.lower() == "boluajisebutu45000@gmail.com"));
         
-      allow update: if isOwner(uid)
+      allow update: if (isOwner(uid)
         && isValidUser(incoming())
-        && incoming().uid == existing().uid
-        && incoming().email == existing().email
-        && incoming().createdAt == existing().createdAt
-        && incoming().lastLogin == request.time;
+        && (!('uid' in existing()) || incoming().uid == existing().uid)
+        && (!('email' in existing()) || incoming().email == existing().email)
+        && (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
+        && incoming().lastLogin == request.time
+        && (!('role' in incoming()) || !('role' in existing()) || incoming().role == existing().role)
+        && (!('disabled' in incoming()) || !('disabled' in existing()) || incoming().disabled == existing().disabled))
+        || isAdmin();
+
+      allow delete: if isAdmin();
     }
 
     // 2. Profiles Collection
     match /profiles/{uid} {
-      allow read: if isOwner(uid);
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(uid)
         && isValidProfile(incoming())
         && incoming().updatedAt == request.time;
         
-      allow update: if isOwner(uid)
+      allow update: if (isOwner(uid)
         && isValidProfile(incoming())
         && incoming().uid == existing().uid
-        && incoming().updatedAt == request.time;
+        && incoming().updatedAt == request.time)
+        || isAdmin();
+
+      allow delete: if isAdmin();
     }
 
     // 3. Assessments Collection
     match /assessments/{assessmentId} {
-      allow get: if isSignedIn() && resource.data.uid == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow get: if (isSignedIn() && resource.data.uid == request.auth.uid) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.uid == request.auth.uid) || isAdmin();
       
       allow create: if isSignedIn()
         && incoming().uid == request.auth.uid
         && isValidAssessment(incoming())
         && incoming().createdAt == request.time;
         
-      // Assessments are immutable after upload
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
   }
 }

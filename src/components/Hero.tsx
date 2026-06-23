@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { ArrowRight, ShieldCheck, HeartPulse, BrainCircuit, Activity, TrendingUp } from "lucide-react";
+import { ArrowRight, ShieldCheck, ShieldPlus, BrainCircuit, Activity, TrendingUp } from "lucide-react";
 
 interface HeroProps {
   onStart: () => void;
@@ -37,33 +37,33 @@ export default function Hero({ onStart }: HeroProps) {
               Our calibrated machine learning engine processes complex symptoms to deliver evidence-based insight in seconds.
             </p>
             
-            <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-10">
               <button 
                 id="btn-hero-cta-start"
                 onClick={onStart}
-                className="w-full sm:w-auto bg-slate-900 text-white px-8 py-4 rounded-xl font-semibold hover:bg-slate-800 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 group hover:-translate-y-0.5"
+                className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-750 hover:to-emerald-750 text-white px-8 py-4.5 rounded-xl font-bold text-base shadow-md hover:shadow-xl hover:shadow-teal-600/10 transition-all duration-300 flex items-center justify-center gap-2 group hover:scale-[1.03] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 outline-none min-h-[52px]"
               >
                 <span>Start Free Assessment</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <a 
                 id="btn-hero-learn-more"
                 href="#conditions"
-                className="w-full sm:w-auto text-center border border-slate-200 text-slate-700 px-8 py-4 rounded-xl font-semibold bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                className="w-full sm:w-auto text-center border border-slate-200 text-slate-700 px-8 py-4.5 rounded-xl font-semibold text-sm bg-white hover:bg-slate-50 hover:border-slate-300 transition-all duration-300 shadow-sm focus-visible:ring-2 focus-visible:ring-teal-500/50 focus-visible:ring-offset-2 outline-none min-h-[52px]"
               >
                 Learn More
               </a>
             </div>
 
             {/* Quick trust metrics */}
-            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 pt-6 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 pt-6 border-t border-slate-200">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                <span className="text-xs font-medium text-slate-500">100% Encrypted & Private</span>
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <span className="text-xs font-semibold text-slate-600">100% Encrypted & Private</span>
               </div>
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-teal-600" />
-                <span className="text-xs font-medium text-slate-500">Dual-Symptom Classification</span>
+                <span className="text-xs font-semibold text-slate-600">Dual-Symptom Classification</span>
               </div>
             </div>
           </motion.div>
@@ -86,7 +86,7 @@ export default function Hero({ onStart }: HeroProps) {
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600">
-                      <HeartPulse className="w-5 h-5 animate-pulse" />
+                      <ShieldPlus className="w-5 h-5 animate-pulse" />
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">HealthPredict Engine</h3>
