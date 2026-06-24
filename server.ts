@@ -1002,6 +1002,22 @@ async function startServer() {
       pregnancyDifficultyVal
     ];
 
+    console.log("=== FIBROID PREDICTION FEATURE VECTOR PIPELINE ===");
+    console.log(`[0] Age:                      ${age} (from payload.age: ${data.age})`);
+    console.log(`[1] BMI:                      ${bmiValue} (from payload.weight: ${data.weight}, payload.height: ${data.height})`);
+    console.log(`[2] Symptom_Count:            ${symptom_count} (sum of 10 core symptoms)`);
+    console.log(`[3] Heavy_Bleeding:           ${heavyBleedingVal} (from payload.heavyBleeding: ${data.heavyBleeding})`);
+    console.log(`[4] Prolonged_Menstruation:   ${prolongedMenstruationVal} (from payload.prolongedMenstruation: ${data.prolongedMenstruation})`);
+    console.log(`[5] Pelvic_Pain:              ${pelvicPainVal} (from payload.pelvicPain: ${data.pelvicPain})`);
+    console.log(`[6] Abdominal_Swelling:       ${abdominalSwellingVal} (from payload.abdominalSwelling: ${data.abdominalSwelling})`);
+    console.log(`[7] Frequent_Urination:       ${frequentUrinationVal} (from payload.frequentUrination: ${data.frequentUrination})`);
+    console.log(`[8] Constipation:             ${constipationVal} (from payload.constipation: ${data.constipation})`);
+    console.log(`[9] Fatigue_Anemia:           ${fatigueAnemiaVal} (from payload.fatigueAnemia: ${data.fatigueAnemia})`);
+    console.log(`[10] Pain_During_Intercourse: ${painDuringIntercourseVal} (from payload.painDuringIntercourse: ${data.painDuringIntercourse})`);
+    console.log(`[11] Lower_Back_Pain:         ${lowerBackPainVal} (from payload.lowerBackPain: ${data.lowerBackPain})`);
+    console.log(`[12] Irregular_Menstrual_Flow: ${irregularMenstrualFlowVal} (from payload.irregularMenstrualFlow: ${data.irregularMenstrualFlow})`);
+    console.log(`[13] Family_History:          ${familyHistoryVal} (from payload.familyHistory: ${data.familyHistory})`);
+    console.log(`[14] Pregnancy_Difficulty:    ${pregnancyDifficultyVal} (from payload.pregnancyDifficulty: ${data.pregnancyDifficulty})`);
     console.log(">>> [ML] Fibroid Inference Input Array:", JSON.stringify(inputFeatures));
 
     const predictionClass = fibroidModel.predict([inputFeatures])[0];
