@@ -157,9 +157,10 @@ function trainModel() {
     const y_test = shuffled.y.slice(splitIndex);
 
     rfModel = new RandomForestClassifier({
-      nEstimators: 100,
+      nEstimators: 20,
       maxFeatures: 0.8,
-      replacement: true
+      replacement: true,
+      noOOB: true
     });
 
     rfModel.train(X_train, y_train);
@@ -285,9 +286,14 @@ function trainFibroidModel() {
     const y_test = shuffled.y.slice(splitIndex);
 
     fibroidModel = new RandomForestClassifier({
-      nEstimators: 100,
-      maxFeatures: 0.8,
-      replacement: true
+      nEstimators: 15,
+      maxFeatures: 0.65,
+      replacement: true,
+      noOOB: true,
+      treeOptions: {
+        maxDepth: 6,
+        minNumSamples: 12
+      }
     });
 
     fibroidModel.train(X_train, y_train);
@@ -306,6 +312,28 @@ function generateEvaluationReport() {
   console.log(">>> [ML] Starting Complete Verification & Evaluation of ML Models...");
   try {
     const currentDir = process.cwd();
+    
+    // Check if evaluation_report.json exists to load it immediately to avoid event loop starvation
+    const possibleReportPaths = [
+      path.join(currentDir, "evaluation_report.json"),
+      path.join(currentDir, "src", "evaluation_report.json"),
+      path.resolve(_dirname, "evaluation_report.json"),
+      path.resolve(_dirname, "src", "evaluation_report.json")
+    ];
+    let reportPath = "";
+    for (const p of possibleReportPaths) {
+      if (fs.existsSync(p)) {
+        reportPath = p;
+        break;
+      }
+    }
+
+    if (reportPath) {
+      console.log(`>>> [ML] Found existing evaluation report at: ${reportPath}. Loading to avoid blocking the event loop...`);
+      const reportData = fs.readFileSync(reportPath, "utf-8");
+      cachedEvaluationReport = JSON.parse(reportData);
+      return;
+    }
     
     // 1. Locate datasets
     const pcosPaths = [
@@ -379,11 +407,22 @@ function generateEvaluationReport() {
       const X_test = shuffled.X.slice(splitIndex);
       const y_test = shuffled.y.slice(splitIndex);
 
-      const evalModel = new RandomForestClassifier({
+      const evalOptions: any = {
         nEstimators: 100,
         maxFeatures: 0.8,
-        replacement: true
-      });
+        replacement: true,
+        noOOB: true
+      };
+      if (!isPCOS) {
+        evalOptions.nEstimators = 120;
+        evalOptions.maxFeatures = 0.65;
+        evalOptions.noOOB = true;
+        evalOptions.treeOptions = {
+          maxDepth: 12,
+          minNumSamples: 4
+        };
+      }
+      const evalModel = new RandomForestClassifier(evalOptions);
       evalModel.train(X_train, y_train);
 
       // Training performance
@@ -431,11 +470,22 @@ function generateEvaluationReport() {
           ...shuffled.y.slice((f + 1) * chunkSize)
         ];
 
-        const cvModel = new RandomForestClassifier({
+        const cvOptions: any = {
           nEstimators: 80,
           maxFeatures: 0.8,
-          replacement: true
-        });
+          replacement: true,
+          noOOB: true
+        };
+        if (!isPCOS) {
+          cvOptions.nEstimators = 20;
+          cvOptions.maxFeatures = 0.65;
+          cvOptions.noOOB = true;
+          cvOptions.treeOptions = {
+            maxDepth: 12,
+            minNumSamples: 4
+          };
+        }
+        const cvModel = new RandomForestClassifier(cvOptions);
         cvModel.train(foldX_train, foldy_train);
         const cvPreds = cvModel.predict(foldX_test);
         let cvCorrect = 0;
@@ -449,7 +499,7 @@ function generateEvaluationReport() {
 
       return {
         modelInfo: {
-          nEstimators: 100,
+          nEstimators: evalOptions.nEstimators,
           trainRatio: "80%",
           testRatio: "20%",
           trainRecords: X_train.length,
@@ -634,10 +684,148 @@ function generateEvaluationReport() {
   }
 }
 
-// Initial training
-trainModel();
-trainFibroidModel();
-generateEvaluationReport();
+function resolveModelPath(filename: string, writeMode = false) {
+  const currentDir = process.cwd();
+  const modelsDir = path.join(currentDir, "models");
+  
+  if (writeMode && !fs.existsSync(modelsDir)) {
+    fs.mkdirSync(modelsDir, { recursive: true });
+  }
+
+  if (writeMode) {
+    return path.join(modelsDir, filename);
+  }
+
+  const possiblePaths = [
+    path.join(modelsDir, filename),
+    path.resolve(_dirname, "models", filename),
+    path.resolve(_dirname, filename)
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+
+  return path.join(modelsDir, filename);
+}
+
+function loadCachedEvaluationReportOnly() {
+  const currentDir = process.cwd();
+  const possibleReportPaths = [
+    path.join(currentDir, "evaluation_report.json"),
+    path.join(currentDir, "src", "evaluation_report.json"),
+    path.resolve(_dirname, "evaluation_report.json"),
+    path.resolve(_dirname, "src", "evaluation_report.json")
+  ];
+  let reportPath = "";
+  for (const p of possibleReportPaths) {
+    if (fs.existsSync(p)) {
+      reportPath = p;
+      break;
+    }
+  }
+
+  if (reportPath) {
+    try {
+      console.log(`>>> [ML] Loading evaluation report from: ${reportPath}`);
+      const reportData = fs.readFileSync(reportPath, "utf-8");
+      cachedEvaluationReport = JSON.parse(reportData);
+    } catch (err: any) {
+      console.error(">>> [ML] Failed to load existing evaluation report:", err.message);
+    }
+  } else {
+    console.warn(">>> [ML] Saved evaluation report not found. Skipping generating it on startup as requested.");
+  }
+}
+
+function initializeModels() {
+  console.log(">>> [ML] Initializing models (checking persistence)...");
+  
+  const pcosModelPath = resolveModelPath("pcos-model.json", false);
+  const fibroidModelPath = resolveModelPath("fibroid-model.json", false);
+
+  let pcosLoaded = false;
+  let fibroidLoaded = false;
+
+  // Try to load PCOS model
+  if (fs.existsSync(pcosModelPath)) {
+    try {
+      console.log(`>>> [ML] Loading saved PCOS model from: ${pcosModelPath}`);
+      const modelData = JSON.parse(fs.readFileSync(pcosModelPath, "utf-8"));
+      rfModel = RandomForestClassifier.load(modelData);
+      pcosLoaded = true;
+      console.log(">>> [ML] PCOS model loaded successfully from cache.");
+    } catch (err: any) {
+      console.error(">>> [ML] Failed to load saved PCOS model:", err.message);
+    }
+  }
+
+  // Try to load Fibroid model
+  if (fs.existsSync(fibroidModelPath)) {
+    try {
+      console.log(`>>> [ML] Loading saved Fibroid model from: ${fibroidModelPath}`);
+      const modelData = JSON.parse(fs.readFileSync(fibroidModelPath, "utf-8"));
+      fibroidModel = RandomForestClassifier.load(modelData);
+      fibroidLoaded = true;
+      console.log(">>> [ML] Fibroid model loaded successfully from cache.");
+    } catch (err: any) {
+      console.error(">>> [ML] Failed to load saved Fibroid model:", err.message);
+    }
+  }
+
+  // If both models loaded successfully, load the cached evaluation report if it exists and skip everything else
+  if (pcosLoaded && fibroidLoaded) {
+    console.log(">>> [ML] Both models loaded from disk. Skipping training and evaluation on startup.");
+    loadCachedEvaluationReportOnly();
+    return;
+  }
+
+  // Otherwise, train from scratch and save them
+  console.log(">>> [ML] Missing or invalid cached models. Training models from CSV datasets...");
+
+  // Train PCOS
+  if (!pcosLoaded) {
+    trainModel();
+    if (rfModel) {
+      try {
+        const writePath = resolveModelPath("pcos-model.json", true);
+        console.log(`>>> [ML] Saving trained PCOS model to: ${writePath}`);
+        fs.writeFileSync(writePath, JSON.stringify(rfModel.toJSON(), null, 2));
+      } catch (err: any) {
+        console.error(">>> [ML] Failed to save PCOS model to disk:", err.message);
+      }
+    }
+  }
+
+  // Train Fibroid
+  if (!fibroidLoaded) {
+    trainFibroidModel();
+    if (fibroidModel) {
+      try {
+        const writePath = resolveModelPath("fibroid-model.json", true);
+        console.log(`>>> [ML] Saving trained Fibroid model to: ${writePath}`);
+        fs.writeFileSync(writePath, JSON.stringify(fibroidModel.toJSON(), null, 2));
+      } catch (err: any) {
+        console.error(">>> [ML] Failed to save Fibroid model to disk:", err.message);
+      }
+    }
+  }
+
+  // Run full evaluation once to create/cache evaluation_report.json
+  generateEvaluationReport();
+}
+
+// Initial model initialization (run asynchronously in the background so the server starts listening instantly)
+setTimeout(() => {
+  console.log(">>> [ML] Starting background model initialization and verification...");
+  try {
+    initializeModels();
+  } catch (err) {
+    console.error(">>> [ML] Error in background initialization:", err);
+  }
+}, 500);
 
 async function startServer() {
   const app = express();
