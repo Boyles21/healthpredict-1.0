@@ -107,7 +107,7 @@ HealthPredict/
 Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/healthpredict.git
+git clone [https://github.com/Boyles21/healthpredict-1.0].git
 ```
 
 Navigate into the project
