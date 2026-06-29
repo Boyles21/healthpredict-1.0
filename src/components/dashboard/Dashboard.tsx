@@ -8,7 +8,7 @@ import Input from "../ui/Input";
 import Checkbox from "../ui/Checkbox";
 
 import { useAuth } from "../../contexts/AuthContext";
-import { db, handleFirestoreError, OperationType } from "../../../lib/firebase";
+import { db, handleFirestoreError, OperationType } from "../../lib/firebase";
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface DashboardProps {

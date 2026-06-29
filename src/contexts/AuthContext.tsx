@@ -11,7 +11,7 @@ import {
   updateProfile
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db, handleFirestoreError, OperationType } from "../../lib/firebase";
+import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import firebaseConfig from "../../firebase-applet-config.json";
 
 export interface UserProfile {
