@@ -8,7 +8,7 @@ import Input from "../ui/Input";
 import Checkbox from "../ui/Checkbox";
 
 import { useAuth } from "../../contexts/AuthContext";
-import { db, handleFirestoreError, OperationType } from "../../lib/firebase";
+import { db, handleFirestoreError, OperationType } from "../../../lib/firebase";
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface DashboardProps {
@@ -242,8 +242,23 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile, onBack
       });
 
       setHistory(list);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.GET, `assessments`);
+      // Save local backup cache
+      localStorage.setItem(`health_predict_history_cache_${user.uid}`, JSON.stringify(list));
+    } catch (err: any) {
+      const isPermissionError = err?.code === 'permission-denied' || 
+                                err?.message?.toLowerCase().includes('permission') ||
+                                err?.message?.toLowerCase().includes('insufficient');
+      if (isPermissionError) {
+        handleFirestoreError(err, OperationType.GET, `assessments`);
+      } else {
+        console.warn("Firestore offline/unavailable or network error while fetching history. Loading cached history:", err);
+        const cached = localStorage.getItem(`health_predict_history_cache_${user.uid}`);
+        if (cached) {
+          try {
+            setHistory(JSON.parse(cached));
+          } catch (_) {}
+        }
+      }
     } finally {
       setHistoryLoading(false);
     }
@@ -306,8 +321,16 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile, onBack
 
         try {
           await addDoc(collection(db, "assessments"), assessmentDoc);
-        } catch (err) {
-          handleFirestoreError(err, OperationType.CREATE, "assessments");
+        } catch (err: any) {
+          const isPermissionError = err?.code === 'permission-denied' || 
+                                    err?.message?.toLowerCase().includes('permission') ||
+                                    err?.message?.toLowerCase().includes('insufficient');
+          if (isPermissionError) {
+            handleFirestoreError(err, OperationType.CREATE, "assessments");
+          } else {
+            console.warn("Firestore offline/unavailable during migration, leaving item in local history:", err);
+            throw new Error("Cloud database is currently offline. Your local assessments will remain saved on this device until a connection is established.");
+          }
         }
       }
 
@@ -674,8 +697,44 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile, onBack
 
       try {
         await addDoc(collection(db, "assessments"), assessmentDoc);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, "assessments");
+      } catch (err: any) {
+        const isPermissionError = err?.code === 'permission-denied' || 
+                                  err?.message?.toLowerCase().includes('permission') ||
+                                  err?.message?.toLowerCase().includes('insufficient');
+        if (isPermissionError) {
+          handleFirestoreError(err, OperationType.CREATE, "assessments");
+        } else {
+          console.warn("Firestore offline/unavailable or network error while saving assessment. Saving locally as backup:", err);
+          // Save to local cache so the user doesn't lose their session data
+          const cached = localStorage.getItem(`health_predict_history_cache_${user.uid}`);
+          let localList = [];
+          if (cached) {
+            try {
+              localList = JSON.parse(cached);
+            } catch (_) {}
+          }
+          localList.unshift({
+            ...assessmentDoc,
+            id: `local_${Date.now()}`,
+            createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
+          });
+          localStorage.setItem(`health_predict_history_cache_${user.uid}`, JSON.stringify(localList));
+          // Save under the unsynced migrations list too so we prompt migration later
+          const existingLocal = localStorage.getItem("health_predict_history");
+          let unsyncedList = [];
+          if (existingLocal) {
+            try {
+              unsyncedList = JSON.parse(existingLocal);
+            } catch (_) {}
+          }
+          unsyncedList.unshift({
+            ...assessmentDoc,
+            id: `local_${Date.now()}`,
+            createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
+          });
+          localStorage.setItem("health_predict_history", JSON.stringify(unsyncedList));
+          setMigrationAvailable(true);
+        }
       }
       
       setPrediction(data);
@@ -752,8 +811,44 @@ export default function Dashboard({ userProfile, onLogout, onGoToProfile, onBack
 
       try {
         await addDoc(collection(db, "assessments"), assessmentDoc);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, "assessments");
+      } catch (err: any) {
+        const isPermissionError = err?.code === 'permission-denied' || 
+                                  err?.message?.toLowerCase().includes('permission') ||
+                                  err?.message?.toLowerCase().includes('insufficient');
+        if (isPermissionError) {
+          handleFirestoreError(err, OperationType.CREATE, "assessments");
+        } else {
+          console.warn("Firestore offline/unavailable or network error while saving uploaded assessment. Saving locally as backup:", err);
+          // Save to local cache so the user doesn't lose their session data
+          const cached = localStorage.getItem(`health_predict_history_cache_${user.uid}`);
+          let localList = [];
+          if (cached) {
+            try {
+              localList = JSON.parse(cached);
+            } catch (_) {}
+          }
+          localList.unshift({
+            ...assessmentDoc,
+            id: `local_${Date.now()}`,
+            createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
+          });
+          localStorage.setItem(`health_predict_history_cache_${user.uid}`, JSON.stringify(localList));
+          // Save under the unsynced migrations list too so we prompt migration later
+          const existingLocal = localStorage.getItem("health_predict_history");
+          let unsyncedList = [];
+          if (existingLocal) {
+            try {
+              unsyncedList = JSON.parse(existingLocal);
+            } catch (_) {}
+          }
+          unsyncedList.unshift({
+            ...assessmentDoc,
+            id: `local_${Date.now()}`,
+            createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
+          });
+          localStorage.setItem("health_predict_history", JSON.stringify(unsyncedList));
+          setMigrationAvailable(true);
+        }
       }
 
       setPrediction(result);

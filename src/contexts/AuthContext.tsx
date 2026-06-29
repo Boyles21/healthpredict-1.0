@@ -11,7 +11,7 @@ import {
   updateProfile
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
+import { auth, db, handleFirestoreError, OperationType } from "../../lib/firebase";
 import firebaseConfig from "../../firebase-applet-config.json";
 
 export interface UserProfile {
@@ -69,12 +69,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           let userDocSnap;
           let profileDocSnap;
+          let isOffline = false;
           
           try {
             userDocSnap = await getDoc(userDocRef);
             profileDocSnap = await getDoc(profileDocRef);
-          } catch (err) {
-            handleFirestoreError(err, OperationType.GET, `users_profiles/${firebaseUser.uid}`);
+          } catch (err: any) {
+            const isPermissionError = err?.code === 'permission-denied' || 
+                                      err?.message?.toLowerCase().includes('permission') ||
+                                      err?.message?.toLowerCase().includes('insufficient');
+            if (isPermissionError) {
+              handleFirestoreError(err, OperationType.GET, `users_profiles/${firebaseUser.uid}`);
+            } else {
+              console.warn("Firestore offline/unavailable or network error, attempting local cache fallback:", err);
+              isOffline = true;
+            }
           }
           
           const isAdminEmail = firebaseUser.email === "boluajisebutu45000@gmail.com";
@@ -93,8 +102,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 role: dbRole,
                 disabled: false
               });
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
+            } catch (err: any) {
+              const isPermissionError = err?.code === 'permission-denied' || 
+                                        err?.message?.toLowerCase().includes('permission') ||
+                                        err?.message?.toLowerCase().includes('insufficient');
+              if (isPermissionError) {
+                handleFirestoreError(err, OperationType.CREATE, `users/${firebaseUser.uid}`);
+              } else {
+                console.warn("Firestore offline while creating user doc:", err);
+              }
             }
           } else if (userDocSnap && userDocSnap.exists()) {
             const uData = userDocSnap.data();
@@ -112,8 +128,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 role: dbRole,
                 lastLogin: serverTimestamp()
               });
-            } catch (err) {
-              handleFirestoreError(err, OperationType.UPDATE, `users/${firebaseUser.uid}`);
+            } catch (err: any) {
+              const isPermissionError = err?.code === 'permission-denied' || 
+                                        err?.message?.toLowerCase().includes('permission') ||
+                                        err?.message?.toLowerCase().includes('insufficient');
+              if (isPermissionError) {
+                handleFirestoreError(err, OperationType.UPDATE, `users/${firebaseUser.uid}`);
+              } else {
+                console.warn("Firestore offline while updating user doc:", err);
+              }
             }
           }
 
@@ -128,44 +151,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (profileDocSnap && profileDocSnap.exists()) {
             const pData = profileDocSnap.data();
-            setUserProfile({
+            const profile = {
               ...(pData as UserProfile),
               role: dbRole,
               disabled: isDisabled,
-            });
-          } else {
-            // First time login or fallback: create default profile in Firestore
-            const defaultProfile: UserProfile = {
-              fullName: firebaseUser.displayName || "Jane Doe",
-              email: firebaseUser.email || "jane@example.com",
-              location: "North America",
-              ethnicity: "Prefer not to say",
-              bloodType: "Unknown",
-              allergies: "",
-              chronicConditions: "",
-              medications: "",
-              role: dbRole,
-              disabled: isDisabled,
             };
-            
+            setUserProfile(profile);
+            localStorage.setItem(`health_predict_profile_cache_${firebaseUser.uid}`, JSON.stringify(profile));
+          } else {
+            // Attempt to retrieve from local cache first if we are offline or have network issues
+            let cachedProfile: UserProfile | null = null;
             try {
-              await setDoc(profileDocRef, {
-                fullName: defaultProfile.fullName,
-                email: defaultProfile.email,
-                location: defaultProfile.location,
-                ethnicity: defaultProfile.ethnicity,
-                bloodType: defaultProfile.bloodType,
-                allergies: defaultProfile.allergies,
-                chronicConditions: defaultProfile.chronicConditions,
-                medications: defaultProfile.medications,
-                uid: firebaseUser.uid,
-                updatedAt: serverTimestamp()
-              });
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, `profiles/${firebaseUser.uid}`);
+              const cached = localStorage.getItem(`health_predict_profile_cache_${firebaseUser.uid}`);
+              if (cached) {
+                cachedProfile = JSON.parse(cached);
+              }
+            } catch (e) {
+              console.error("Failed to parse cached profile", e);
             }
-            
-            setUserProfile(defaultProfile);
+
+            if (cachedProfile) {
+              setUserProfile(cachedProfile);
+            } else {
+              // First time login or fallback: create default profile in Firestore
+              const defaultProfile: UserProfile = {
+                fullName: firebaseUser.displayName || "Jane Doe",
+                email: firebaseUser.email || "jane@example.com",
+                location: "North America",
+                ethnicity: "Prefer not to say",
+                bloodType: "Unknown",
+                allergies: "",
+                chronicConditions: "",
+                medications: "",
+                role: dbRole,
+                disabled: isDisabled,
+              };
+              
+              if (!isOffline) {
+                try {
+                  await setDoc(profileDocRef, {
+                    fullName: defaultProfile.fullName,
+                    email: defaultProfile.email,
+                    location: defaultProfile.location,
+                    ethnicity: defaultProfile.ethnicity,
+                    bloodType: defaultProfile.bloodType,
+                    allergies: defaultProfile.allergies,
+                    chronicConditions: defaultProfile.chronicConditions,
+                    medications: defaultProfile.medications,
+                    uid: firebaseUser.uid,
+                    updatedAt: serverTimestamp()
+                  });
+                } catch (err: any) {
+                  const isPermissionError = err?.code === 'permission-denied' || 
+                                            err?.message?.toLowerCase().includes('permission') ||
+                                            err?.message?.toLowerCase().includes('insufficient');
+                  if (isPermissionError) {
+                    handleFirestoreError(err, OperationType.CREATE, `profiles/${firebaseUser.uid}`);
+                  } else {
+                    console.warn("Firestore offline while saving profile:", err);
+                  }
+                }
+              }
+              
+              setUserProfile(defaultProfile);
+            }
           }
           
         } catch (error) {
@@ -185,7 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err: any) {
-      if (err.code === "auth/invalid-credential") {
+      if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
         // If we get an invalid-credential error in the sandbox/testing project,
         // it means the account doesn't exist yet or has different credentials.
         // We attempt to automatically register them to create a seamless demo/test experience.
@@ -194,9 +243,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const formattedName = defaultName.charAt(0).toUpperCase() + defaultName.slice(1);
           await register(email, password, formattedName || "Jane Doe");
           return;
-        } catch (signupErr) {
-          // If signup fails (e.g. because email is indeed registered or password too weak),
-          // throw the original credential error to remain standard-compliant.
+        } catch (signupErr: any) {
+          // If signup fails because email is indeed registered or password too weak,
+          // throw an informative error so the user knows what to do instead of a cryptic one.
+          if (signupErr.code === "auth/email-already-in-use" || signupErr.message?.includes("email-already-in-use")) {
+            const friendlyErr = new Error("This email is already registered. If you signed up with Google, please use 'Continue with Google'. Otherwise, please check your password or use 'Forgot Password'.");
+            (friendlyErr as any).code = "auth/invalid-credential";
+            throw friendlyErr;
+          }
           throw err;
         }
       }
