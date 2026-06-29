@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
           
-          const isAdminEmail = firebaseUser.email === "boluajisebutu45000@gmail.com";
+          const isAdminEmail = firebaseUser.email === "boluajisebutu45000@gmail.com" || firebaseUser.email === "anochieglory1@gmail.com";
           let dbRole: "admin" | "user" = isAdminEmail ? "admin" : "user";
           let isDisabled = false;
 
@@ -273,7 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Create the users collection tracking record
-      const isAdminEmail = email === "boluajisebutu45000@gmail.com";
+      const isAdminEmail = email === "boluajisebutu45000@gmail.com" || email === "anochieglory1@gmail.com";
       const dbRole: "admin" | "user" = isAdminEmail ? "admin" : "user";
       try {
         await setDoc(doc(db, "users", firebaseUser.uid), {

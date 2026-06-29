@@ -18,7 +18,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        ('email' in request.auth.token && request.auth.token.email.lower() == 'boluajisebutu45000@gmail.com') ||
+        ('email' in request.auth.token && (request.auth.token.email.lower() == 'boluajisebutu45000@gmail.com' || request.auth.token.email.lower() == 'anochieglory1@gmail.com')) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
@@ -117,7 +117,7 @@ service cloud.firestore {
         && isValidUser(incoming())
         && incoming().createdAt == request.time
         && incoming().lastLogin == request.time
-        && (!('role' in incoming()) || incoming().role == "user" || ('email' in request.auth.token && request.auth.token.email.lower() == "boluajisebutu45000@gmail.com"));
+        && (!('role' in incoming()) || incoming().role == "user" || ('email' in request.auth.token && (request.auth.token.email.lower() == "boluajisebutu45000@gmail.com" || request.auth.token.email.lower() == "anochieglory1@gmail.com")));
         
       allow update: if (isOwner(uid)
         && isValidUser(incoming())
@@ -160,6 +160,19 @@ service cloud.firestore {
         && incoming().createdAt == request.time;
         
       allow update, delete: if isAdmin();
+    }
+
+    // 4. Settings Collection
+    match /settings/{documentId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isAdmin()
+        && isValidId(documentId)
+        && (incoming().pcosHigh is int || incoming().pcosHigh is float)
+        && (incoming().pcosMod is int || incoming().pcosMod is float)
+        && (incoming().fibroidHigh is int || incoming().fibroidHigh is float)
+        && (incoming().fibroidMod is int || incoming().fibroidMod is float)
+        && (incoming().updatedAt is timestamp || incoming().updatedAt is map);
+      allow delete: if isAdmin();
     }
   }
 }
